@@ -60,9 +60,9 @@ func (h *Handler) ServeTracker(c echo.Context) error {
 			if (cs && cs.dataset && cs.dataset.endpoint) return cs.dataset.endpoint;
 			if (cs && cs.src) {
 			var u = new URL(cs.src);
-				return u.origin + '/track';
+				return u.origin + '/event';
 			}
-			return '/track';
+			return '/event';
 		}
 
 		var TRACK_URL = getTrackerURL();

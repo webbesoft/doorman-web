@@ -40,7 +40,9 @@ func main() {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	e.Use(middleware.CORS())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+	}))
 
 	// Session middleware
 	e.Use(session.Middleware(sessions.NewCookieStore([]byte(os.Getenv("DOORMAN_SESSION_SECRET")))))
@@ -49,7 +51,7 @@ func main() {
 	h := &handlers.Handler{DB: db}
 
 	// Public routes (tracking)
-	e.POST("/track", h.Track)
+	e.POST("/event", h.Track)
 	e.GET("/t.js", h.ServeTracker)
 
 	// Auth routes
