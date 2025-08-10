@@ -17,21 +17,9 @@ import (
 )
 
 func main() {
-	// Initialize database
 	db, err := gorm.Open(sqlite.Open("analytics.db"), &gorm.Config{})
-
-	// Check if there was an initial error
 	if err != nil {
-		file, createErr := os.Create("analytics.db")
-		if createErr != nil {
-			log.Fatalf("failed to create database file")
-		}
-		file.Close()
-
-		db, err = gorm.Open(sqlite.Open("analytics.db"), &gorm.Config{})
-		if err != nil {
-			log.Fatalf("failed to connect to database after creation")
-		}
+		log.Fatalf("failed to connect to database: %v", err)
 	}
 
 	// Auto migrate
