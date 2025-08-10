@@ -40,7 +40,7 @@ func main() {
 	// Create default admin user if doesn't exist
 	var user models.User
 	if err := db.Where("username = ?", "admin").First(&user).Error; err == gorm.ErrRecordNotFound {
-		hashedPassword, _ := models.HashPassword(os.Getenv("ADMIN_PASS"))
+		hashedPassword, _ := models.HashPassword(os.Getenv("ADMIN_PASSWORD"))
 		defaultUser := models.User{
 			Username: os.Getenv("ADMIN_USER"),
 			Password: hashedPassword,
