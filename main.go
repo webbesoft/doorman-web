@@ -19,9 +19,19 @@ import (
 func main() {
 	// Initialize database
 	db, err := gorm.Open(sqlite.Open("analytics.db"), &gorm.Config{})
+
+	// Check if there was an initial error
 	if err != nil {
-		os.Create("analytics.db")
+		file, createErr := os.Create("analytics.db")
+		if createErr != nil {
+			panic("failed to create database file")
+		}
+		file.Close()
+
 		db, err = gorm.Open(sqlite.Open("analytics.db"), &gorm.Config{})
+		if err != nil {
+			panic("failed to connect to database after creation")
+		}
 	}
 
 	// Auto migrate
@@ -30,13 +40,12 @@ func main() {
 	// Create default admin user if doesn't exist
 	var user models.User
 	if err := db.Where("username = ?", "admin").First(&user).Error; err == gorm.ErrRecordNotFound {
-		hashedPassword, _ := models.HashPassword("admin123")
+		hashedPassword, _ := models.HashPassword(os.Getenv("ADMIN_PASS"))
 		defaultUser := models.User{
-			Username: "admin",
+			Username: os.Getenv("ADMIN_USER"),
 			Password: hashedPassword,
 		}
 		db.Create(&defaultUser)
-		log.Println("Default admin user created (username: admin, password: admin123)")
 	}
 
 	// Initialize Echo
@@ -46,7 +55,7 @@ func main() {
 	e.Use(middleware.CORS())
 
 	// Session middleware
-	e.Use(session.Middleware(sessions.NewCookieStore([]byte("your-secret-key-change-this"))))
+	e.Use(session.Middleware(sessions.NewCookieStore([]byte(os.Getenv("DOORMAN_SESSION_SECRET")))))
 
 	// Initialize handlers
 	h := &handlers.Handler{DB: db}
