@@ -24,13 +24,13 @@ func main() {
 	if err != nil {
 		file, createErr := os.Create("analytics.db")
 		if createErr != nil {
-			panic("failed to create database file")
+			log.Fatalf("failed to create database file")
 		}
 		file.Close()
 
 		db, err = gorm.Open(sqlite.Open("analytics.db"), &gorm.Config{})
 		if err != nil {
-			panic("failed to connect to database after creation")
+			log.Fatalf("failed to connect to database after creation")
 		}
 	}
 
