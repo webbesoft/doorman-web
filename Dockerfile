@@ -13,14 +13,15 @@ RUN go mod download
 COPY . .
 
 RUN templ generate
+
 RUN CGO_ENABLED=1 GOOS=linux go build -o main .
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /root/
 
-COPY --from=builder /app/main .
 COPY --from=builder /app/assets /app/assets
+COPY --from=builder /app/main .
 
 EXPOSE 8080
 

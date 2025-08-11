@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"log"
 	"os"
 
@@ -16,6 +17,9 @@ import (
 	authMiddleware "github.com/tmunongo/doorman/middleware"
 	"github.com/tmunongo/doorman/models"
 )
+
+//go:embed assets/*
+var statis_assets embed.FS
 
 func main() {
 	db, err := gorm.Open(sqlite.Open("analytics.db"), &gorm.Config{})
@@ -69,7 +73,7 @@ func main() {
 	e.POST("/login", h.Login)
 	e.POST("/logout", h.Logout)
 
-	e.Static("/assets", "assets")
+	e.StaticFS("/assets", echo.MustSubFS(statis_assets, "assets"))
 
 	// Protected routes
 	protected := e.Group("")
