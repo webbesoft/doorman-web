@@ -31,7 +31,7 @@ accessories:
         - ADMIN_PASSWORD
         - DOORMAN_SESSION_SECRET
     port: "8080:8080"
-    directories:
+    volumes:
       - analytics.db:/app/analytics.db
 ```
 
