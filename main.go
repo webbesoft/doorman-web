@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/gorilla/sessions"
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -25,9 +26,19 @@ func main() {
 	// Auto migrate
 	db.AutoMigrate(&models.PageView{}, &models.User{})
 
+	if os.Getenv("APP_ENV") == "local" {
+		err := godotenv.Load()
+
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
+
 	// Create default admin user if doesn't exist
 	var user models.User
 	if err := db.Where("username = ?", "admin").First(&user).Error; err == gorm.ErrRecordNotFound {
+		log.Println(os.Getenv("ADMIN_PASSWORD"))
+
 		hashedPassword, _ := models.HashPassword(os.Getenv("ADMIN_PASSWORD"))
 		defaultUser := models.User{
 			Username: os.Getenv("ADMIN_USER"),
@@ -52,12 +63,13 @@ func main() {
 
 	// Public routes (tracking)
 	e.POST("/event", h.Track)
-	e.GET("/t.js", h.ServeTracker)
 
 	// Auth routes
 	e.GET("/login", h.LoginPage)
 	e.POST("/login", h.Login)
 	e.POST("/logout", h.Logout)
+
+	e.Static("/assets", "assets")
 
 	// Protected routes
 	protected := e.Group("")

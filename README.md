@@ -7,7 +7,7 @@ I needed simple analytics for my blog, preferably something lightweight that doe
 1. Add to your website:
 
 ```javascript
-<script src="http://your-domain.com:8080/t.js" async></script>
+<script src="http://your-domain.com:8080/assets/js/t.js" async></script>
 ```
 
 2. Access dashboard:

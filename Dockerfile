@@ -9,6 +9,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+
+RUN templ generate
 RUN CGO_ENABLED=1 GOOS=linux go build -o main .
 
 FROM alpine:latest

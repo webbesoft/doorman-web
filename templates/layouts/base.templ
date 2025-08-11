@@ -1,0 +1,16 @@
+package layouts
+
+templ Base(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title } - Doorman</title>
+			<link href="assets/css/output.css" rel="stylesheet"/>
+		</head>
+		<body class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center p-4">
+			{ children... }
+		</body>
+	</html>
+}
