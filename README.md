@@ -14,6 +14,42 @@ I needed simple analytics for my blog, preferably something lightweight that doe
    http://localhost:8080/login
    Default credentials: admin / admin123
 
+3. With [kamal](https://kamal-deploy.org/)
+
+```yaml
+accessories:
+  doorman:
+    image: ghcr.io/webbesoft/doorman:latest
+    host: your-host-ip
+    proxy:
+      ssl: true
+      host: your-host.com
+      app_port: 8080
+    env:
+      secret:
+        - ADMIN_USER
+        - ADMIN_PASSWORD
+        - DOORMAN_SESSION_SECRET
+    port: "8080:8080"
+    directories:
+      - analytics.db:/app/analytics.db
+```
+
+4. Docker compose
+
+```yaml
+services:
+  doorman:
+    image: ghcr.io/webbesoft/doorman:latest
+    environment:
+      - ADMIN_USER
+      - ADMIN_PASSWORD
+      - DOORMAN_SESSION_SECRET
+    port: "8080:8080"
+    volumes:
+      - analytics.db:/app/analytics.db
+```
+
 GDPR Compliance Features:
 
 - No cookies used for tracking
