@@ -12,9 +12,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/tmunongo/doorman-go/handlers"
-	authMiddleware "github.com/tmunongo/doorman-go/middleware"
-	"github.com/tmunongo/doorman-go/models"
+	"github.com/tmunongo/doorman/handlers"
+	authMiddleware "github.com/tmunongo/doorman/middleware"
+	"github.com/tmunongo/doorman/models"
 )
 
 func main() {

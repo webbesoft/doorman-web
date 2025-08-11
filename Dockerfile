@@ -4,6 +4,8 @@ LABEL org.opencontainers.image.source=https://github.com/webbesoft/doorman
 
 RUN apk add --no-cache make build-base
 
+RUN go install github.com/a-h/templ/cmd/templ@latest
+
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
