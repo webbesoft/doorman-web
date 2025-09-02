@@ -2,7 +2,7 @@ package pages
 
 import (
 	"fmt"
-	"github.com/tmunongo/doorman/templates/layouts"
+	"github.com/webbesoft/doorman/templates/layouts"
 )
 
 templ DashboardPage(topReferrers []struct {
@@ -230,9 +230,7 @@ templ DashboardPage(topReferrers []struct {
 				const dailyViews = JSON.parse(dailyViewsJSON);
 
 				const chartData = {
-					labels: [
-						dailyViews.map((dailyView) => { return dailyView.Date })
-					],
+					labels: dailyViews.map((dailyView) => { return dailyView.Date }),
 					datasets: [{
 						label: 'Daily Visitors',
 						data: dailyViews.map((dailyView) => { return dailyView.Count }),

@@ -13,9 +13,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/tmunongo/doorman/handlers"
-	authMiddleware "github.com/tmunongo/doorman/middleware"
-	"github.com/tmunongo/doorman/models"
+	"github.com/webbesoft/doorman/handlers"
+	authMiddleware "github.com/webbesoft/doorman/middleware"
+	"github.com/webbesoft/doorman/models"
 )
 
 //go:embed assets/*

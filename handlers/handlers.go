@@ -11,8 +11,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
-	"github.com/tmunongo/doorman/models"
-	"github.com/tmunongo/doorman/templates/pages"
+	"github.com/webbesoft/doorman/models"
+	"github.com/webbesoft/doorman/templates/pages"
 )
 
 type Handler struct {

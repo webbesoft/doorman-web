@@ -1,4 +1,4 @@
-module github.com/tmunongo/doorman
+module github.com/webbesoft/doorman
 
 go 1.24
 

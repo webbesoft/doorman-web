@@ -1,6 +1,7 @@
 FROM golang:1.24-alpine AS builder
 
 LABEL org.opencontainers.image.source=https://github.com/webbesoft/doorman
+LABEL org.opencontainers.image.authors="Tawanda Munongo <ejmunongo@gmail.com>"
 
 RUN apk add --no-cache make build-base
 

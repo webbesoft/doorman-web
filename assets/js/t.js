@@ -22,7 +22,7 @@
       body: JSON.stringify({
         url: window.location.href,
         referrer: document.referrer,
-        agent: navigator.userAgent,
+        agent: userAgent,
       }),
       keepalive: true,
     }).catch(function () {
