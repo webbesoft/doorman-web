@@ -3,11 +3,11 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Simple Analytics Configuration
+    | Doorman Configuration
     |--------------------------------------------------------------------------
     */
 
-    'enabled' => env('SIMPLE_ANALYTICS_ENABLED', true),
+    'enabled' => env('DOORMAN_ENABLED', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -52,7 +52,7 @@ return [
     | Set to null to keep data forever.
     |
     */
-    'retention_days' => env('SIMPLE_ANALYTICS_RETENTION_DAYS', 365),
+    'retention_days' => env('DOORMAN_RETENTION_DAYS', 365),
 
     /*
     |--------------------------------------------------------------------------
