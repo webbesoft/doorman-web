@@ -18,7 +18,7 @@ class UserAnalytic extends Model
     ];
 
     protected $casts = [
-        'date' => 'date',
+        'date' => 'datetime:Y-m-d H:i:s',
     ];
 
     // Scopes

@@ -12,7 +12,7 @@ class AnalyticsService
     public function track(Request $request): void
     {
         $identifier = $this->getUniqueIdentifier($request);
-        $today = now()->format('Y-m-d');
+        $today = now()->format('Y-m-d H:i:s');
         $page = $request->path();
 
         if ($identifier) {
@@ -63,15 +63,18 @@ class AnalyticsService
         return hash('sha256', $ip.$salt);
     }
 
-    protected function recordVisit(string $identifier, string $type, string $date): void
+    protected function recordVisit(string $identifier, string $type, string $date, string $page): void
     {
-        UserAnalytic::updateOrCreate([
-            'identifier' => $identifier,
-            'date' => $date,
-            'page' => $page ?? '/',
-        ], [
-            'identifier_type' => $type,
-        ]);
+        UserAnalytic::updateOrCreate(
+            [
+                'identifier' => $identifier,
+            ],
+            [
+                'identifier_type' => $type,
+                'date' => $date,
+                'page' => $page ?? '/',
+            ]
+        );
     }
 
     public function getStats(?Carbon $start = null, ?Carbon $end = null): array
