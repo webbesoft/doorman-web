@@ -43,13 +43,13 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "webbesoft\\doorman\\Tests\\": "tests/"
+      "Webbesoft\\Doorman\\Tests\\": "tests/"
     }
   },
   "extra": {
     "laravel": {
       "providers": [
-        "webbesoft\\doorman\\AnalyticsServiceProvider"
+        "Webbesoft\\Doorman\\AnalyticsServiceProvider"
       ]
     }
   },

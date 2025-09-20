@@ -103,8 +103,9 @@ class AnalyticsService
 
     public function getTodayStats(): array
     {
-        $today = now();
-        $typeBreakdown = UserAnalytic::getTypeBreakdown($today, $today);
+        $endOfDay = now()->endOfDay();
+        $today = now()->startOfDay();
+        $typeBreakdown = UserAnalytic::getTypeBreakdown($today, $endOfDay);
 
         return [
             'unique_visitors' => UserAnalytic::getUniqueVisitorsForDate($today),

@@ -30,8 +30,8 @@ class UserAnalytic extends Model
     public function scopeByDateRange(Builder $query, Carbon $start, Carbon $end): Builder
     {
         return $query->whereBetween('date', [
-            $start->format('Y-m-d'),
-            $end->format('Y-m-d'),
+            $start->format('Y-m-d H:i:s'),
+            $end->format('Y-m-d H:i:s'),
         ]);
     }
 
