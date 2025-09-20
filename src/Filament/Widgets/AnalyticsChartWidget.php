@@ -9,7 +9,7 @@ class AnalyticsChartWidget extends ChartWidget
 {
     protected ?string $heading = 'Daily Unique Visitors - Last 30 Days';
 
-    protected ?int $sort = 2;
+    protected static ?int $sort = 2;
 
     protected function getData(): array
     {
