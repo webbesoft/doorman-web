@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use webbesoft\doorman\Services\AnalyticsService;
 
-class TrackAnalytics
+class TrackAnalyticsMiddleware
 {
     protected AnalyticsService $analyticsService;
 
