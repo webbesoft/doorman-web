@@ -1,6 +1,6 @@
 <?php
 
-namespace webbesoft\doorman\Filament\Widgets;
+namespace webbesoft\doorman\src\Filament\Widgets;
 
 use Filament\Widgets\ChartWidget;
 use webbesoft\doorman\Services\AnalyticsService;

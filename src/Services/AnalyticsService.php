@@ -5,6 +5,7 @@ namespace webbesoft\doorman\Services;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use webbesoft\doorman\Models\PageVisit;
 use webbesoft\doorman\Models\UserAnalytic;
 
 class AnalyticsService
@@ -75,6 +76,13 @@ class AnalyticsService
                 'page' => $page ?? '/',
             ]
         );
+
+        PageVisit::create([
+            'page' => $page ?? '/',
+            'visited_at' => $date,
+            'identifier' => $identifier,
+            'identifier_type' => $type,
+        ]);
     }
 
     public function getStats(?Carbon $start = null, ?Carbon $end = null): array

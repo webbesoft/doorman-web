@@ -1,6 +1,6 @@
 <?php
 
-namespace webbesoft\doorman\Filament\Widgets;
+namespace webbesoft\doorman\src\Filament\Widgets;
 
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
