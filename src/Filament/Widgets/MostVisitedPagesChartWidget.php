@@ -7,7 +7,7 @@ use Webbesoft\Doorman\Models\PageVisit;
 
 class MostVisitedPagesChartWidget extends ChartWidget
 {
-    protected static ?string $heading = 'Most Visited Pages';
+    protected ?string $heading = 'Most Visited Pages';
 
     protected function getData(): array
     {
