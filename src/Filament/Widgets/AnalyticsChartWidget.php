@@ -7,9 +7,9 @@ use webbesoft\doorman\Services\AnalyticsService;
 
 class AnalyticsChartWidget extends ChartWidget
 {
-    protected static ?string $heading = 'Daily Unique Visitors - Last 30 Days';
+    protected ?string $heading = 'Daily Unique Visitors - Last 30 Days';
 
-    protected static ?int $sort = 2;
+    protected ?int $sort = 2;
 
     protected function getData(): array
     {
