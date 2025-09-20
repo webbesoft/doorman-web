@@ -11,7 +11,8 @@
   "require": {
     "php": "8.4.12",
     "illuminate/support": "^12.28",
-    "laravel/pint": "^1.25"
+    "laravel/pint": "^1.25",
+    "filament/widgets": "^3.3"
   },
   "require-dev": {
     "orchestra/testbench": "^10.6",

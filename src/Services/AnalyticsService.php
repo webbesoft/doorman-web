@@ -13,9 +13,10 @@ class AnalyticsService
     {
         $identifier = $this->getUniqueIdentifier($request);
         $today = now()->format('Y-m-d');
+        $page = $request->path();
 
         if ($identifier) {
-            $this->recordVisit($identifier['value'], $identifier['type'], $today);
+            $this->recordVisit($identifier['value'], $identifier['type'], $today, $page);
         }
     }
 
@@ -67,6 +68,7 @@ class AnalyticsService
         UserAnalytic::updateOrCreate([
             'identifier' => $identifier,
             'date' => $date,
+            'page' => $page ?? '/',
         ], [
             'identifier_type' => $type,
         ]);

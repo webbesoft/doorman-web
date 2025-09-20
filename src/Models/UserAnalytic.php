@@ -14,6 +14,7 @@ class UserAnalytic extends Model
         'identifier',
         'identifier_type',
         'date',
+        'page',
     ];
 
     protected $casts = [

@@ -9,8 +9,8 @@ return new class extends Migration
     public function up()
     {
         Schema::table('user_analytics', function (Blueprint $table) {
-            $table->dropColumn('ip_hash');
             $table->dropUnique(['ip_hash', 'date']);
+            $table->dropColumn('ip_hash');
             $table->string('identifier');
             $table->string('identifier_type');
 
