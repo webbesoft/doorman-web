@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class UserAnalytic extends Model
 {
-    protected $table = 'analytics';
+    protected $table = 'user_analytics';
 
     protected $fillable = [
         'identifier',
