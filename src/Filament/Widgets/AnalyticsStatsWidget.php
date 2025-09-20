@@ -1,10 +1,10 @@
 <?php
 
-namespace webbesoft\doorman\src\Filament\Widgets;
+namespace Webbesoft\Doorman\Filament\Widgets;
 
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use webbesoft\doorman\Services\AnalyticsService;
+use Webbesoft\Doorman\Services\AnalyticsService;
 
 class AnalyticsStatsWidget extends BaseWidget
 {

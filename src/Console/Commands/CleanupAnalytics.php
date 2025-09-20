@@ -1,9 +1,9 @@
 <?php
 
-namespace webbesoft\doorman\Console\Commands;
+namespace Webbesoft\Doorman\Console\Commands;
 
 use Illuminate\Console\Command;
-use webbesoft\doorman\Models\UserAnalytic;
+use Webbesoft\Doorman\Models\UserAnalytic;
 
 class CleanupAnalytics extends Command
 {

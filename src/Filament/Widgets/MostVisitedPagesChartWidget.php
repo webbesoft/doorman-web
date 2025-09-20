@@ -1,11 +1,11 @@
 <?php
 
-namespace webbesoft\doorman\src\Filament\Widgets;
+namespace Webbesoft\Doorman\Filament\Widgets;
 
 use Filament\Widgets\ChartWidget;
-use webbesoft\doorman\Models\PageVisit;
+use Webbesoft\Doorman\Models\PageVisit;
 
-class MostVisitedPagesChart extends ChartWidget
+class MostVisitedPagesChartWidget extends ChartWidget
 {
     protected static ?string $heading = 'Most Visited Pages';
 

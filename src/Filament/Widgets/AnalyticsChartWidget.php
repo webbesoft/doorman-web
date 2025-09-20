@@ -1,9 +1,9 @@
 <?php
 
-namespace webbesoft\doorman\src\Filament\Widgets;
+namespace Webbesoft\Doorman\Filament\Widgets;
 
 use Filament\Widgets\ChartWidget;
-use webbesoft\doorman\Services\AnalyticsService;
+use Webbesoft\Doorman\Services\AnalyticsService;
 
 class AnalyticsChartWidget extends ChartWidget
 {
@@ -22,7 +22,6 @@ class AnalyticsChartWidget extends ChartWidget
         $dates = [];
         $visitorData = [];
 
-        // Generate all dates for the last 30 days
         for ($i = 29; $i >= 0; $i--) {
             $date = now()->subDays($i)->format('Y-m-d');
             $dates[] = now()->subDays($i)->format('M j');

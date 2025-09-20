@@ -1,6 +1,6 @@
 <?php
 
-namespace webbesoft\doorman\Models;
+namespace Webbesoft\Doorman\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;

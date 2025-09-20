@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace webbesoft\doorman\Tests;
+namespace Webbesoft\Doorman\Tests;
 
 use Orchestra\Testbench\TestCase as Orchestra;
 

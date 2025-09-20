@@ -1,10 +1,10 @@
 <?php
 
-namespace webbesoft\doorman\Http\Middleware;
+namespace Webbesoft\Doorman\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use webbesoft\doorman\Services\AnalyticsService;
+use Webbesoft\Doorman\Services\AnalyticsService;
 
 class TrackAnalyticsMiddleware
 {

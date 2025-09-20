@@ -1,10 +1,10 @@
 <?php
 
-namespace webbesoft\doorman;
+namespace Webbesoft\Doorman;
 
 use Illuminate\Support\ServiceProvider;
-use webbesoft\doorman\Console\Commands\CleanupAnalytics;
-use webbesoft\doorman\Services\AnalyticsService;
+use Webbesoft\Doorman\Console\Commands\CleanupAnalytics;
+use Webbesoft\Doorman\Services\AnalyticsService;
 
 class AnalyticsServiceProvider extends ServiceProvider
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace webbesoft\doorman\Tests\Unit;
+namespace Webbesoft\Doorman\Tests\Unit;
 
 beforeEach(function () {
     $this->service = new \webbesoft\doorman\Services\AnalyticsService;

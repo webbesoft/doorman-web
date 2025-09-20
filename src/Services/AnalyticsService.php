@@ -1,12 +1,12 @@
 <?php
 
-namespace webbesoft\doorman\Services;
+namespace Webbesoft\Doorman\Services;
 
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use webbesoft\doorman\Models\PageVisit;
-use webbesoft\doorman\Models\UserAnalytic;
+use Webbesoft\Doorman\Models\PageVisit;
+use Webbesoft\Doorman\Models\UserAnalytic;
 
 class AnalyticsService
 {
