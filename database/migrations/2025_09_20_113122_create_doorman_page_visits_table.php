@@ -13,10 +13,10 @@ return new class extends Migration
             $table->string('page');
             $table->string('identifier');
             $table->string('identifier_type');
-            $table->date('date');
+            $table->date('visited_at');
             $table->timestamps();
 
-            $table->unique(['page', 'identifier', 'identifier_type', 'date'], 'unique_page_identifier_date');
+            $table->unique(['page', 'identifier', 'identifier_type', 'visited_at'], 'unique_page_identifier_visitedat');
         });
     }
 
