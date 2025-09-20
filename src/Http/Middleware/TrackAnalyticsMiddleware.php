@@ -34,7 +34,7 @@ class TrackAnalyticsMiddleware
     protected function shouldTrack(Request $request, $response): bool
     {
         // Check if analytics is enabled
-        if (! config('simple-analytics.enabled', true)) {
+        if (! config('doorman.enabled', true)) {
             return false;
         }
 
@@ -44,7 +44,7 @@ class TrackAnalyticsMiddleware
         }
 
         // Check route exclusions
-        $excludeRoutes = config('simple-analytics.exclude_routes', []);
+        $excludeRoutes = config('doorman.exclude_routes', []);
         foreach ($excludeRoutes as $pattern) {
             if ($request->is($pattern)) {
                 return false;
@@ -67,7 +67,7 @@ class TrackAnalyticsMiddleware
             return true;
         }
 
-        $bots = config('simple-analytics.bot_patterns', [
+        $bots = config('doorman.bot_patterns', [
             'bot', 'crawler', 'spider', 'scraper', 'parser',
             'googlebot', 'bingbot', 'slurp', 'duckduckbot',
             'facebookexternalhit', 'twitterbot', 'whatsapp',

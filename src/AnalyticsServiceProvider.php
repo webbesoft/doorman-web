@@ -28,15 +28,15 @@ class AnalyticsServiceProvider extends ServiceProvider
     protected function publishConfig(): void
     {
         $this->publishes([
-            __DIR__.'/../config/simple-analytics.php' => config_path('simple-analytics.php'),
-        ], 'simple-analytics-config');
+            __DIR__.'/../config/doorman.php' => config_path('doorman.php'),
+        ], 'doorman-config');
     }
 
     protected function publishMigrations(): void
     {
         $this->publishes([
             __DIR__.'/../database/migrations/' => database_path('migrations'),
-        ], 'simple-analytics-migrations');
+        ], 'doorman-migrations');
 
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
     }

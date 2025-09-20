@@ -15,7 +15,7 @@ class CleanupAnalytics extends Command
 
     public function handle(): int
     {
-        $retentionDays = $this->option('days') ?? config('simple-analytics.retention_days');
+        $retentionDays = $this->option('days') ?? config('doorman.retention_days');
 
         if (! $retentionDays) {
             $this->info('No retention period configured. Skipping cleanup.');
