@@ -15,7 +15,7 @@ COPY . .
 
 RUN templ generate
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o doorman .
+RUN CGO_ENABLED=1 GOOS=linux go build -o doorman cmd/doorman
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates tzdata

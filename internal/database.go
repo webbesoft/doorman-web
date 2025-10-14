@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
@@ -106,4 +107,17 @@ func connectByProvider(provider string) (*gorm.DB, error) {
 
 		return db, err
 	}
+}
+
+// remove page views older than retention period
+func CleanupOldData(db *gorm.DB, retentionDays int) error {
+	cutoff := time.Now().AddDate(0, 0, -retentionDays)
+	
+	result := db.Where("created_at < ?", cutoff).Delete(&models.PageView{})
+	if result.Error != nil {
+		return result.Error
+	}
+	
+	log.Printf("Cleaned up %d old page views (older than %d days)", result.RowsAffected, retentionDays)
+	return nil
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"log"
 	"os"
 
@@ -11,30 +10,29 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
 
+	assets "github.com/webbesoft/doorman"
 	database "github.com/webbesoft/doorman/internal"
 	"github.com/webbesoft/doorman/internal/handlers"
 	authMiddleware "github.com/webbesoft/doorman/internal/middleware"
+	"github.com/webbesoft/doorman/internal/services"
 )
 
 type App struct {
-    DB    *gorm.DB
+	DB *gorm.DB
 }
-
-//go:embed assets/*
-var statis_assets embed.FS
 
 func main() {
 	db, err := database.InitDB()
-    if err != nil {
-        log.Fatalf("failed to connect to database: %v", err)
-    }
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
 
 	app := &App{DB: db}
 
 	// Create default admin user if doesn't exist
 	if err := database.EnsureDefaultAdmin(app.DB); err != nil {
-        log.Fatalf("failed to ensure default admin: %v", err)
-    }
+		log.Fatalf("failed to ensure default admin: %v", err)
+	}
 
 	// Initialize Echo
 	e := echo.New()
@@ -46,6 +44,9 @@ func main() {
 
 	// Session middleware
 	e.Use(session.Middleware(sessions.NewCookieStore([]byte(os.Getenv("DOORMAN_SESSION_SECRET")))))
+
+	// extract real IP
+	e.IPExtractor = echo.ExtractIPFromXFFHeader()
 
 	// Initialize handlers
 	h := &handlers.Handler{DB: app.DB}
@@ -59,7 +60,7 @@ func main() {
 	e.POST("/login", a.Login)
 	e.POST("/logout", a.Logout)
 
-	e.StaticFS("/assets", echo.MustSubFS(statis_assets, "assets"))
+	e.StaticFS("/assets", echo.MustSubFS(&assets.Assets, "assets"))
 
 	// Protected routes
 	protected := e.Group("")
@@ -69,6 +70,8 @@ func main() {
 
 	// Static files
 	e.Static("/static", "static")
+
+	go services.StartCleanupRoutine(db)
 
 	port := os.Getenv("PORT")
 	if port == "" {
