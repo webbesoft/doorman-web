@@ -20,7 +20,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)
 
-	err = db.AutoMigrate(&models.PageView{})
+	err = db.AutoMigrate(&models.Analytics{}, &models.PageVisit{})
 	assert.NoError(t, err)
 	return db
 }
@@ -73,7 +73,7 @@ func TestGeoService_FromDatabase(t *testing.T) {
 	ipHash := "hash-1111"
 
 	// Insert existing PageView record
-	db.Create(&models.PageView{
+	db.Create(&models.Analytics{
 		IPHash:    ipHash,
 		Country:   "Germany",
 		CreatedAt: time.Now(),

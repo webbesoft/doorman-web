@@ -6,27 +6,37 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type PageView struct {
-	ID uint `gorm:"primaryKey" json:"id"`
-	URL string `gorm:"not null;index:idx_iphash_url,unique" json:"url"`
-	Referrer string `json:"referrer"`
+type Analytics struct {
+	ID        uint   `gorm:"primaryKey" json:"id"`
+	URL       string `gorm:"not null;index" json:"url"`
+	Referrer  string `json:"referrer"`
 	UserAgent string `json:"user_agent"`
-	IPHash string `gorm:"index:idx_iphash_url,unique" json:"-"`
-	
-	DwellTime   int `json:"dwell_time"`
-	ActiveTime  int `json:"active_time"`
-	ScrollDepth int `json:"scroll_depth"`
-	
+	IPHash    string `gorm:"index" json:"-"`
+
 	Country string `gorm:"index" json:"country"`
 	Region  string `json:"region"`
 	City    string `json:"city"`
 
-	IsBot bool `gorm:"index;default:false" json:"is_bot"`
-	BotScore int `json:"bot_score"`
+	IsBot     bool   `gorm:"index;default:false" json:"is_bot"`
+	BotScore  int    `json:"bot_score"`
 	BotReason string `json:"bot_reason,omitempty"`
+
+	PageVisits []PageVisit `gorm:"foreignKey:AnalyticsID"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type PageVisit struct {
+	ID          uint   `gorm:"primaryKey"`
+	AnalyticsID uint   `gorm:"index"`
+	URL         string `gorm:"index"`
+
+	IPHash string `gorm:"index" json:"-"`
+
+	DwellTime   int `json:"dwell_time"`
+	ActiveTime  int `json:"active_time"`
+	ScrollDepth int `json:"scroll_depth"`
 }
 
 type PageAnalytics struct {
@@ -41,9 +51,9 @@ type PageAnalytics struct {
 }
 
 type User struct {
-	ID uint `gorm:"primaryKey"`
-	Username string `gorm:"unique;not null"`
-	Password string `gorm:"not null"`
+	ID        uint   `gorm:"primaryKey"`
+	Username  string `gorm:"unique;not null"`
+	Password  string `gorm:"not null"`
 	CreatedAt time.Time
 }
 

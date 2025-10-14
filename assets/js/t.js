@@ -12,7 +12,7 @@
   var TRACK_URL = getTrackerURL();
 
   var sessionData = {
-    url: window.location.ref,
+    url: window.location.href, // FIX: was window.location.ref
     referrer: document.referrer,
     startTime: Date.now(),
     activeTime: 0,
@@ -20,9 +20,10 @@
     maxScroll: 0,
     isActive: true,
     sent: false,
+    lastSendTime: 0, // Track last send to prevent duplicates
   };
 
-  // activity
+  // Activity tracking
   var inactivityTimer;
   var INACTIVITY_THRESHOLD = 30000; // 30 secs
 
@@ -96,9 +97,12 @@
   function sendData(final) {
     if (sessionData.sent && !final) return;
 
+    // Prevent duplicate sends within 1 second
+    var now = Date.now();
+    if (now - sessionData.lastSendTime < 1000 && !final) return;
+
     updateActiveTime();
 
-    var now = Date.now();
     var dwellTime = Math.floor((now - sessionData.startTime) / 1000);
 
     var payload = {
@@ -113,24 +117,30 @@
     var payloadStr = JSON.stringify(payload);
     var sent = false;
 
+    // Try sendBeacon first (more reliable on page unload)
     if (navigator.sendBeacon) {
       try {
-        var blog = new Blob([payloadStr], { type: "application/json" });
+        var blob = new Blob([payloadStr], { type: "application/json" });
+        // sent = navigator.sendBeacon(TRACK_URL, blob);
       } catch (e) {
         sent = false;
       }
     }
 
+    // Fallback to fetch
     if (!sent) {
       fetch(TRACK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: payloadStr,
         keepalive: true,
+        credentials: "omit",
       }).catch(function () {
         // silently fail
       });
     }
+
+    sessionData.lastSendTime = now;
 
     if (final) {
       sessionData.sent = true;
@@ -168,8 +178,7 @@
     document.addEventListener(event, markActive, { passive: true });
   });
 
-  // Scroll listener
-  window.addEventListener = calculateScrollDepth();
+  window.addEventListener("scroll", updateScroll, { passive: true });
 
   setTimeout(function () {
     sessionData.maxScroll = calculateScrollDepth();
@@ -183,11 +192,10 @@
     }, 5000);
   }
 
-  // Track initial page load
   if (document.readyState === "complete") {
-    track();
+    trackInitialLoad();
   } else {
-    window.addEventListener("load", track);
+    window.addEventListener("load", trackInitialLoad);
   }
 
   // Track navigation for SPAs
@@ -195,8 +203,10 @@
   var originalReplaceState = history.replaceState;
 
   function handleNavigation() {
+    // Send final data for current page
     sendData(true);
 
+    // Reset session data for new page
     setTimeout(function () {
       sessionData.url = window.location.href;
       sessionData.startTime = Date.now();

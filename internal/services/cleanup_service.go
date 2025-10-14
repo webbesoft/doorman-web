@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	database "github.com/webbesoft/doorman/internal"
+	database "github.com/webbesoft/doorman/internal/database"
 	"gorm.io/gorm"
 )
 

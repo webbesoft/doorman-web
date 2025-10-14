@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -19,11 +20,11 @@ type GeoData struct {
 }
 
 type GeoService struct {
-	DB              *gorm.DB
-	geoCache        map[string]*GeoData
-	geoCacheMux     sync.RWMutex
-	rateLimiter     map[string][]time.Time
-	rateLimiterMux  sync.RWMutex
+	DB             *gorm.DB
+	geoCache       map[string]*GeoData
+	geoCacheMux    sync.RWMutex
+	rateLimiter    map[string][]time.Time
+	rateLimiterMux sync.RWMutex
 	getGeoFunc     func(ip string) (*GeoData, error)
 }
 
@@ -60,6 +61,10 @@ func getGeoData(ip string) (*GeoData, error) {
 }
 
 func (g *GeoService) GetGeoDataCached(ip, ipHash string) *GeoData {
+	if (! isPublicIP(net.ParseIP(ip))) {
+		return &GeoData{}
+	}
+	
 	g.geoCacheMux.RLock()
 	cached, ok := g.geoCache[ipHash]
 	g.geoCacheMux.RUnlock()
@@ -68,9 +73,9 @@ func (g *GeoService) GetGeoDataCached(ip, ipHash string) *GeoData {
 	}
 
 	// Check database for recent geo data
-	var existingView models.PageView
+	var existingView models.Analytics
 	err := g.DB.Select("country, region, city").
-		Where("ip_hash = ? AND country != '' AND created_at > ?", 
+		Where("ip_hash = ? AND country != '' AND created_at > ?",
 			ipHash, time.Now().Add(-24*time.Hour)).
 		First(&existingView).Error
 
@@ -80,11 +85,11 @@ func (g *GeoService) GetGeoDataCached(ip, ipHash string) *GeoData {
 			RegionName: existingView.Region,
 			City:       existingView.City,
 		}
-		
+
 		g.geoCacheMux.Lock()
 		g.geoCache[ipHash] = geo
 		g.geoCacheMux.Unlock()
-		
+
 		return geo
 	}
 
@@ -98,4 +103,42 @@ func (g *GeoService) GetGeoDataCached(ip, ipHash string) *GeoData {
 	g.geoCacheMux.Unlock()
 
 	return geo
+}
+
+func isPublicIP(ip net.IP) bool {
+	if ip == nil {
+        return false
+    }
+    // Loopback, link-local unicast/multicast are not public
+    if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+        return false
+    }
+
+    // IPv4 private ranges
+    if ip4 := ip.To4(); ip4 != nil {
+        switch {
+        case ip4[0] == 10:
+            return false
+        case ip4[0] == 172 && ip4[1] >= 16 && ip4[1] <= 31:
+            return false
+        case ip4[0] == 192 && ip4[1] == 168:
+            return false
+        case ip4[0] == 169 && ip4[1] == 254: // link-local IPv4
+            return false
+        default:
+            return true
+        }
+    }
+
+    // IPv6: unique local addresses (fc00::/7) are not public
+    if ip.To16() != nil {
+        // check first byte for fc00::/7 (0b11111100 => 0xfc)
+        if ip[0]&0xfe == 0xfc {
+            return false
+        }
+        // fe80::/10 is link-local (IsLinkLocalUnicast already handled)
+        return true
+    }
+
+    return false
 }

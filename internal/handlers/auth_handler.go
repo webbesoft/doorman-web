@@ -19,20 +19,20 @@ type AuthHandler struct {
 // LoginPage renders the login page
 func (a *AuthHandler) LoginPage(c echo.Context) error {
 	errParam := c.QueryParam("error")
-    var errMsg string
-    switch errParam {
-    case "invalid":
-        errMsg = "Invalid username or password."
-    case "missing":
-        errMsg = "Please provide username and password."
-    case "expired":
-        errMsg = "Your session has expired. Please sign in again."
-    default:
-        // If an explicit message is provided via ?msg=... prefer that
-        if m := c.QueryParam("msg"); m != "" {
-            errMsg = m
-        }
-    }
+	var errMsg string
+	switch errParam {
+	case "invalid":
+		errMsg = "Invalid username or password."
+	case "missing":
+		errMsg = "Please provide username and password."
+	case "expired":
+		errMsg = "Your session has expired. Please sign in again."
+	default:
+		// If an explicit message is provided via ?msg=... prefer that
+		if m := c.QueryParam("msg"); m != "" {
+			errMsg = m
+		}
+	}
 
 	return pages.LoginPage(errMsg).Render(context.Background(), c.Response().Writer)
 }

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,10 +11,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"github.com/webbesoft/doorman/internal/models"
 	"github.com/webbesoft/doorman/internal/services"
+	"github.com/webbesoft/doorman/internal/types"
 	"github.com/webbesoft/doorman/templates/pages"
 )
 
@@ -40,15 +41,18 @@ type TrackRequest struct {
 	Final       bool   `json:"final"`
 }
 
+
 // Track handles incoming analytics data
 func (h *Handler) Track(c echo.Context) error {
 	var req TrackRequest
 
-	fmt.Println(req)
-
 	if err := c.Bind(&req); err != nil {
+		c.Logger().Error("Failed to bind request: ", err)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
+
+	c.Logger().Infof("Track request received - URL: %s, Referrer: %s, DwellTime: %d, ActiveTime: %d, ScrollDepth: %d",
+		req.URL, req.Referrer, req.DwellTime, req.ActiveTime, req.ScrollDepth)
 
 	// Hash IP for GDPR compliance (no personal data stored)
 	ip := c.RealIP()
@@ -56,47 +60,73 @@ func (h *Handler) Track(c echo.Context) error {
 	hasher.Write([]byte(ip))
 	ipHash := fmt.Sprintf("%x", hasher.Sum(nil))
 
-	// TODO: add rate limiting per IP
+	c.Logger().Debugf("Processing request from IP hash: %s", ipHash[:8]+"...")
 
 	userAgent := c.Request().UserAgent()
-
 	isBotUA := isBot(userAgent)
-
-	pageView := models.PageView{
-		URL:       req.URL,
-		Referrer:  req.Referrer,
-		UserAgent: userAgent,
-		IPHash:    ipHash,
-		DwellTime: req.DwellTime,
-		ActiveTime: req.ActiveTime,
-		ScrollDepth: req.ScrollDepth,
-		CreatedAt: time.Now(),
-		IsBot: isBotUA,
-	}
-
-	// calculate bot-iness
-	if !isBotUA && req.DwellTime > 0 {
-		score, reason := calculateBotiness(&pageView)
-		pageView.BotScore = score
-		pageView.BotReason = reason
-
-		// flag high bot likelihood score
-		if score > 50 {
-			pageView.IsBot = true
-		}
-	}
 
 	geoService := services.NewGeoService(h.DB)
 	geo := geoService.GetGeoDataCached(ip, ipHash)
-	if geo != nil {
 
+	var existingAnalytic models.Analytics
+	err := h.DB.
+		Where("ip_hash = ? AND url = ?", ipHash, req.URL).
+		First(&existingAnalytic).Error
+
+	var analytic models.Analytics
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {		
+		analytic = models.Analytics{
+			IPHash:    ipHash,
+			URL:       req.URL,
+			Country:   geo.Country,
+			Region:    geo.RegionName,
+			City:      geo.City,
+			UserAgent: userAgent,
+			Referrer:  req.Referrer,
+			IsBot:     isBotUA,
+			CreatedAt: time.Now(),
+		}
+
+		if err := h.DB.Create(&analytic).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save analytics"})
+		}
+	} else if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
+	} else {
+		analytic = existingAnalytic
 	}
 
-	if err := h.DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "url"}, {Name: "ip_hash"}},
-		UpdateAll: true,
-	}).Create(&pageView).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save data"})
+	// Create page visit record
+	pv := models.PageVisit{
+		IPHash:      ipHash,
+		URL: req.URL,
+		AnalyticsID: analytic.ID,
+		DwellTime:   req.DwellTime,
+		ActiveTime:  req.ActiveTime,
+		ScrollDepth: req.ScrollDepth,
+	}
+
+	// Calculate bot score if not a bot UA and has dwell time
+	if !isBotUA && req.DwellTime > 0 {
+		score, reason := calculateBotiness(&pv)
+		analytic.BotScore = score
+		analytic.BotReason = reason
+
+		// Update analytic if high bot score
+		if score > 50 {
+			analytic.IsBot = true
+			analytic.BotScore = score
+			analytic.BotReason = reason
+			if err := h.DB.Save(&analytic).Error; err != nil {
+				c.Logger().Warnf("Failed to update analytics bot score: %v", err)
+			}
+		}
+	}
+
+	if err := h.DB.Create(&pv).Error; err != nil {
+		c.Logger().Errorf("Failed to create page visit: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save page visit"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
@@ -104,52 +134,128 @@ func (h *Handler) Track(c echo.Context) error {
 
 // Dashboard renders the analytics dashboard
 func (h *Handler) Dashboard(c echo.Context) error {
-	// Get total page views
-	var totalViews int64
-	h.DB.Model(&models.PageView{}).Count(&totalViews)
+	metrics := h.getOverallMetrics()
 
-	// Get unique visitors (unique IP hashes)
-	var uniqueVisitors int64
-	h.DB.Model(&models.PageView{}).Distinct("ip_hash").Count(&uniqueVisitors)
+	topPages := h.getTopPages()
 
-	// Get top pages
-	var topPages []struct {
-		URL   string
-		Count int64
+	topReferrers := h.getTopReferrers()
+
+	dailyStats := h.getDailyStats()
+
+	topCountries := h.getTopCountries()
+
+	return pages.DashboardPage(
+		topReferrers,
+		topPages,
+		dailyStats,
+		topCountries,
+		metrics,
+	).Render(context.Background(), c.Response().Writer)
+}
+
+func (h *Handler) getOverallMetrics() types.DashboardMetrics {
+	var metrics types.DashboardMetrics
+
+	// Total page visits
+	h.DB.Model(&models.PageVisit{}).Count(&metrics.TotalPageVisits)
+
+	// Total analytics records (unique sessions)
+	h.DB.Model(&models.Analytics{}).Count(&metrics.TotalAnalytics)
+
+	// Unique visitors (unique IP hashes)
+	h.DB.Model(&models.Analytics{}).
+		Distinct("ip_hash").
+		Count(&metrics.UniqueVisitors)
+
+	// Average dwell time and scroll depth from page visits
+	var avgMetrics struct {
+		AvgDwellTime   float64
+		AvgScrollDepth float64
 	}
-	h.DB.Model(&models.PageView{}).
-		Select("url, COUNT(*) as count").
+	h.DB.Model(&models.PageVisit{}).
+		Select("AVG(dwell_time) as avg_dwell_time, AVG(scroll_depth) as avg_scroll_depth").
+		Where("dwell_time > 0").
+		Scan(&avgMetrics)
+
+	metrics.AvgDwellTime = avgMetrics.AvgDwellTime
+	metrics.AvgScrollDepth = avgMetrics.AvgScrollDepth
+
+	// Bot percentage
+	var botCount int64
+	h.DB.Model(&models.Analytics{}).
+		Where("is_bot = ?", true).
+		Count(&botCount)
+
+	if metrics.TotalAnalytics > 0 {
+		metrics.BotPercentage = float64(botCount) / float64(metrics.TotalAnalytics) * 100
+	}
+
+	return metrics
+}
+
+func (h *Handler) getTopPages() []types.TopPage {
+	var topPages []types.TopPage
+
+	h.DB.Model(&models.PageVisit{}).
+		Select(`
+			url,
+			COUNT(*) as visits,
+			AVG(dwell_time) as avg_dwell_time,
+			AVG(scroll_depth) as avg_scroll
+		`).
+		Where("url != ''").
 		Group("url").
-		Order("count DESC").
+		Order("visits DESC").
 		Limit(10).
 		Scan(&topPages)
 
-	// Get top referrers
-	var topReferrers []struct {
-		Referrer string
-		Count    int64
-	}
-	h.DB.Model(&models.PageView{}).
-		Select("referrer, COUNT(*) as count").
-		Where("referrer != ''").
+	return topPages
+}
+
+func (h *Handler) getTopReferrers() []types.TopReferrer {
+	var topReferrers []types.TopReferrer
+
+	h.DB.Model(&models.Analytics{}).
+		Select("COALESCE(NULLIF(referrer, ''), 'Direct') as referrer, COUNT(*) as count").
 		Group("referrer").
 		Order("count DESC").
 		Limit(10).
 		Scan(&topReferrers)
 
-	// Get recent views for chart (last 7 days)
-	var dailyViews []struct {
-		Date  string
-		Count int64
-	}
-	h.DB.Model(&models.PageView{}).
-		Select("DATE(created_at) as date, COUNT(*) as count").
-		Where("created_at >= ?", time.Now().AddDate(0, 0, -7)).
-		Group("DATE(created_at)").
-		Order("date").
-		Scan(&dailyViews)
+	return topReferrers
+}
 
-	return pages.DashboardPage(topReferrers, topPages, dailyViews, uniqueVisitors, totalViews).Render(context.Background(), c.Response().Writer)
+func (h *Handler) getDailyStats() []types.DailyStats {
+	var dailyStats []types.DailyStats
+
+	// Get page visits per day with engagement metrics
+	h.DB.Raw(`
+		SELECT 
+			DATE(pv.created_at) as date,
+			COUNT(DISTINCT pv.id) as page_visits,
+			COUNT(DISTINCT a.ip_hash) as unique_users,
+			AVG(pv.dwell_time) as avg_dwell_time
+		FROM page_visits pv
+		JOIN analytics a ON pv.analytics_id = a.id
+		WHERE pv.created_at >= ?
+		GROUP BY DATE(pv.created_at)
+		ORDER BY date ASC
+	`, time.Now().AddDate(0, 0, -7)).Scan(&dailyStats)
+
+	return dailyStats
+}
+
+func (h *Handler) getTopCountries() []types.CountryStats {
+	var topCountries []types.CountryStats
+
+	h.DB.Model(&models.Analytics{}).
+		Select("COALESCE(NULLIF(country, ''), 'Unknown') as country, COUNT(*) as count").
+		Group("country").
+		Order("count DESC").
+		Limit(10).
+		Scan(&topCountries)
+
+	return topCountries
 }
 
 func isBot(userAgent string) bool {
@@ -164,7 +270,7 @@ func isBot(userAgent string) bool {
 	return ua == ""
 }
 
-func calculateBotiness(pv *models.PageView) (int, string) {
+func calculateBotiness(pv *models.PageVisit) (int, string) {
 	score := 0
 	reasons := []string{}
 
@@ -192,5 +298,5 @@ func calculateBotiness(pv *models.PageView) (int, string) {
 	}
 
 	reasonStr := strings.Join(reasons, ",")
-	return  score, reasonStr
+	return score, reasonStr
 }

@@ -23,7 +23,7 @@ func InitDB() (*gorm.DB, error) {
 		return nil, err
 	}
 
-    if err := db.AutoMigrate(&models.PageView{}, &models.User{}); err != nil {
+    if err := db.AutoMigrate(&models.Analytics{}, &models.PageVisit{}, &models.User{}); err != nil {
         return nil, err
     }
 
@@ -113,7 +113,7 @@ func connectByProvider(provider string) (*gorm.DB, error) {
 func CleanupOldData(db *gorm.DB, retentionDays int) error {
 	cutoff := time.Now().AddDate(0, 0, -retentionDays)
 	
-	result := db.Where("created_at < ?", cutoff).Delete(&models.PageView{})
+	result := db.Where("created_at < ?", cutoff).Delete(&models.Analytics{})
 	if result.Error != nil {
 		return result.Error
 	}

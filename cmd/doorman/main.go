@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	assets "github.com/webbesoft/doorman"
-	database "github.com/webbesoft/doorman/internal"
+	database "github.com/webbesoft/doorman/internal/database"
 	"github.com/webbesoft/doorman/internal/handlers"
 	authMiddleware "github.com/webbesoft/doorman/internal/middleware"
 	"github.com/webbesoft/doorman/internal/services"
