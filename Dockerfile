@@ -15,15 +15,15 @@ COPY . .
 
 RUN templ generate
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o main .
+RUN CGO_ENABLED=1 GOOS=linux go build -o doorman .
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /root/
 
 COPY --from=builder /app/assets /app/assets
-COPY --from=builder /app/main .
+COPY --from=builder /app/doorman .
 
 EXPOSE 8080
 
-CMD ["./main"]
+CMD ["./doorman"]

@@ -6,50 +6,35 @@ import (
 	"os"
 
 	"github.com/gorilla/sessions"
-	"github.com/joho/godotenv"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/webbesoft/doorman/handlers"
-	authMiddleware "github.com/webbesoft/doorman/middleware"
-	"github.com/webbesoft/doorman/models"
+	database "github.com/webbesoft/doorman/internal"
+	"github.com/webbesoft/doorman/internal/handlers"
+	authMiddleware "github.com/webbesoft/doorman/internal/middleware"
 )
+
+type App struct {
+    DB    *gorm.DB
+}
 
 //go:embed assets/*
 var statis_assets embed.FS
 
 func main() {
-	db, err := gorm.Open(sqlite.Open("analytics.db"), &gorm.Config{})
-	if err != nil {
-		log.Fatalf("failed to connect to database: %v", err)
-	}
+	db, err := database.InitDB()
+    if err != nil {
+        log.Fatalf("failed to connect to database: %v", err)
+    }
 
-	// Auto migrate
-	db.AutoMigrate(&models.PageView{}, &models.User{})
-
-	if os.Getenv("APP_ENV") == "local" {
-		err := godotenv.Load()
-
-		if err != nil {
-			log.Fatal("Error loading .env file")
-		}
-	}
+	app := &App{DB: db}
 
 	// Create default admin user if doesn't exist
-	var user models.User
-	if err := db.Where("username = ?", "admin").First(&user).Error; err == gorm.ErrRecordNotFound {
-		log.Println(os.Getenv("ADMIN_PASSWORD"))
-
-		hashedPassword, _ := models.HashPassword(os.Getenv("ADMIN_PASSWORD"))
-		defaultUser := models.User{
-			Username: os.Getenv("ADMIN_USER"),
-			Password: hashedPassword,
-		}
-		db.Create(&defaultUser)
-	}
+	if err := database.EnsureDefaultAdmin(app.DB); err != nil {
+        log.Fatalf("failed to ensure default admin: %v", err)
+    }
 
 	// Initialize Echo
 	e := echo.New()
@@ -63,15 +48,16 @@ func main() {
 	e.Use(session.Middleware(sessions.NewCookieStore([]byte(os.Getenv("DOORMAN_SESSION_SECRET")))))
 
 	// Initialize handlers
-	h := &handlers.Handler{DB: db}
+	h := &handlers.Handler{DB: app.DB}
+	a := &handlers.AuthHandler{DB: app.DB}
 
 	// Public routes (tracking)
 	e.POST("/event", h.Track)
 
 	// Auth routes
-	e.GET("/login", h.LoginPage)
-	e.POST("/login", h.Login)
-	e.POST("/logout", h.Logout)
+	e.GET("/login", a.LoginPage)
+	e.POST("/login", a.Login)
+	e.POST("/logout", a.Logout)
 
 	e.StaticFS("/assets", echo.MustSubFS(statis_assets, "assets"))
 
