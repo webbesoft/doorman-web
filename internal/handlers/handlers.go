@@ -3,8 +3,10 @@ package handlers
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -46,13 +48,36 @@ type TrackRequest struct {
 func (h *Handler) Track(c echo.Context) error {
 	var req TrackRequest
 
-	if err := c.Bind(&req); err != nil {
-		c.Logger().Error("Failed to bind request: ", err)
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		c.Logger().Errorf("Failed to read body: %v", err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
 
-	c.Logger().Infof("Track request received - URL: %s, Referrer: %s, DwellTime: %d, ActiveTime: %d, ScrollDepth: %d",
-		req.URL, req.Referrer, req.DwellTime, req.ActiveTime, req.ScrollDepth)
+	if len(body) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Empty request body"})
+	}
+
+	if err := json.Unmarshal(body, &req); err != nil {
+		var inner string
+		if err2 := json.Unmarshal(body, &inner); err2 == nil {
+			if err3 := json.Unmarshal([]byte(inner), &req); err3 != nil {
+				c.Logger().Errorf("Failed to parse inner JSON: %v", err3)
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid JSON"})
+			}
+		} else {
+			trimmed := strings.TrimSpace(string(body))
+			if strings.HasPrefix(trimmed, "{") {
+				if err4 := json.Unmarshal([]byte(trimmed), &req); err4 != nil {
+					c.Logger().Errorf("Failed to unmarshal trimmed JSON: %v", err4)
+					return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid JSON"})
+				}
+			} else {
+				c.Logger().Errorf("Failed to parse JSON: %v", err)
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid JSON"})
+			}
+		}
+	}
 
 	// Hash IP for GDPR compliance (no personal data stored)
 	ip := c.RealIP()
@@ -69,13 +94,13 @@ func (h *Handler) Track(c echo.Context) error {
 	geo := geoService.GetGeoDataCached(ip, ipHash)
 
 	var existingAnalytic models.Analytics
-	err := h.DB.
+	err = h.DB.
 		Where("ip_hash = ? AND url = ?", ipHash, req.URL).
 		First(&existingAnalytic).Error
 
 	var analytic models.Analytics
 
-	if errors.Is(err, gorm.ErrRecordNotFound) {		
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		analytic = models.Analytics{
 			IPHash:    ipHash,
 			URL:       req.URL,
@@ -98,13 +123,41 @@ func (h *Handler) Track(c echo.Context) error {
 	}
 
 	// Create page visit record
-	pv := models.PageVisit{
-		IPHash:      ipHash,
-		URL: req.URL,
-		AnalyticsID: analytic.ID,
-		DwellTime:   req.DwellTime,
-		ActiveTime:  req.ActiveTime,
-		ScrollDepth: req.ScrollDepth,
+	fmt.Printf("Analytic ID: %d, URL: %s, IPHash: %s\n", analytic.ID, req.URL, ipHash)
+	var pv models.PageVisit
+	pvErr := h.DB.
+		Where("ip_hash = ? AND url = ? AND analytics_id = ?", ipHash, req.URL, analytic.ID).
+		Order("created_at DESC").
+		First(&pv).Error
+
+	if errors.Is(pvErr, gorm.ErrRecordNotFound) {
+		// Create new page visit for first heartbeat
+		pv = models.PageVisit{
+			IPHash:      ipHash,
+			URL:         req.URL,
+			AnalyticsID: analytic.ID,
+			DwellTime:   req.DwellTime,
+			ActiveTime:  req.ActiveTime,
+			ScrollDepth: req.ScrollDepth,
+			CreatedAt:   time.Now(),
+		}
+
+		if err := h.DB.Create(&pv).Error; err != nil {
+			c.Logger().Errorf("Failed to create page visit: %v", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save page visit"})
+		}
+	} else if pvErr != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
+	} else {
+		pv.DwellTime = req.DwellTime
+		pv.ActiveTime = req.ActiveTime
+		pv.ScrollDepth = req.ScrollDepth
+		pv.UpdatedAt = time.Now()
+
+		if err := h.DB.Save(&pv).Error; err != nil {
+			c.Logger().Errorf("Failed to update page visit: %v", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to update page visit"})
+		}
 	}
 
 	// Calculate bot score if not a bot UA and has dwell time
@@ -124,12 +177,7 @@ func (h *Handler) Track(c echo.Context) error {
 		}
 	}
 
-	if err := h.DB.Create(&pv).Error; err != nil {
-		c.Logger().Errorf("Failed to create page visit: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save page visit"})
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	return c.NoContent(http.StatusNoContent)
 }
 
 // Dashboard renders the analytics dashboard
@@ -156,18 +204,14 @@ func (h *Handler) Dashboard(c echo.Context) error {
 func (h *Handler) getOverallMetrics() types.DashboardMetrics {
 	var metrics types.DashboardMetrics
 
-	// Total page visits
 	h.DB.Model(&models.PageVisit{}).Count(&metrics.TotalPageVisits)
 
-	// Total analytics records (unique sessions)
 	h.DB.Model(&models.Analytics{}).Count(&metrics.TotalAnalytics)
 
-	// Unique visitors (unique IP hashes)
 	h.DB.Model(&models.Analytics{}).
 		Distinct("ip_hash").
 		Count(&metrics.UniqueVisitors)
 
-	// Average dwell time and scroll depth from page visits
 	var avgMetrics struct {
 		AvgDwellTime   float64
 		AvgScrollDepth float64
@@ -228,7 +272,6 @@ func (h *Handler) getTopReferrers() []types.TopReferrer {
 func (h *Handler) getDailyStats() []types.DailyStats {
 	var dailyStats []types.DailyStats
 
-	// Get page visits per day with engagement metrics
 	h.DB.Raw(`
 		SELECT 
 			DATE(pv.created_at) as date,

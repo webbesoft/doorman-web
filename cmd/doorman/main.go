@@ -48,11 +48,9 @@ func main() {
 	// extract real IP
 	e.IPExtractor = echo.ExtractIPFromXFFHeader()
 
-	// Initialize handlers
 	h := &handlers.Handler{DB: app.DB}
 	a := &handlers.AuthHandler{DB: app.DB}
 
-	// Public routes (tracking)
 	e.POST("/event", h.Track)
 
 	// Auth routes

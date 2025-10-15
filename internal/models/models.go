@@ -37,6 +37,9 @@ type PageVisit struct {
 	DwellTime   int `json:"dwell_time"`
 	ActiveTime  int `json:"active_time"`
 	ScrollDepth int `json:"scroll_depth"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type PageAnalytics struct {

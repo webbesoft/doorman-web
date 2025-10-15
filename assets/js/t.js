@@ -12,7 +12,7 @@
   var TRACK_URL = getTrackerURL();
 
   var sessionData = {
-    url: window.location.href, // FIX: was window.location.ref
+    url: window.location.href,
     referrer: document.referrer,
     startTime: Date.now(),
     activeTime: 0,
@@ -20,10 +20,9 @@
     maxScroll: 0,
     isActive: true,
     sent: false,
-    lastSendTime: 0, // Track last send to prevent duplicates
+    lastSendTime: 0,
   };
 
-  // Activity tracking
   var inactivityTimer;
   var INACTIVITY_THRESHOLD = 30000; // 30 secs
 
@@ -121,7 +120,7 @@
     if (navigator.sendBeacon) {
       try {
         var blob = new Blob([payloadStr], { type: "application/json" });
-        // sent = navigator.sendBeacon(TRACK_URL, blob);
+        sent = navigator.sendBeacon(TRACK_URL, payloadStr);
       } catch (e) {
         sent = false;
       }

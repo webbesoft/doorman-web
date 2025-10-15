@@ -15,7 +15,6 @@ templ DashboardPage(
 ) {
 	@layouts.AppLayout("Dashboard") {
 		<div class="min-h-screen bg-slate-900">
-			<!-- Navigation -->
 			<nav class="bg-slate-800 border-b border-slate-700">
 				<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div class="flex justify-between h-16">
@@ -48,9 +47,7 @@ templ DashboardPage(
 				</div>
 			</nav>
 			<main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-				<!-- Key Metrics Grid -->
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-					<!-- Total Page Visits -->
 					<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
 						<div class="flex items-start justify-between">
 							<div class="flex-1">
@@ -65,7 +62,6 @@ templ DashboardPage(
 							</div>
 						</div>
 					</div>
-					<!-- Unique Visitors -->
 					<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
 						<div class="flex items-start justify-between">
 							<div class="flex-1">
@@ -79,7 +75,6 @@ templ DashboardPage(
 							</div>
 						</div>
 					</div>
-					<!-- Avg Dwell Time -->
 					<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
 						<div class="flex items-start justify-between">
 							<div class="flex-1">
@@ -93,7 +88,6 @@ templ DashboardPage(
 							</div>
 						</div>
 					</div>
-					<!-- Avg Scroll Depth -->
 					<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
 						<div class="flex items-start justify-between">
 							<div class="flex-1">
@@ -108,7 +102,6 @@ templ DashboardPage(
 						</div>
 					</div>
 				</div>
-				<!-- Charts Row -->
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 					<!-- Traffic Chart -->
 					<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
@@ -210,8 +203,10 @@ templ DashboardPage(
 				const ctx = document.getElementById('trafficChart');
 				if (!ctx) return;
 
+				console.log({{ templ.JSONString(dailyStats) }});
 				const dailyStatsJSON = {{ templ.JSONString(dailyStats) }};
 				const dailyStats = JSON.parse(dailyStatsJSON);
+
 
 				const chartData = {
 					labels: dailyStats.map(d => d.Date),

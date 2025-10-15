@@ -25,7 +25,7 @@ type DailyStats struct {
 	Date         string
 	PageVisits   int64
 	UniqueUsers  int64
-	AvgDwellTime int
+	AvgDwellTime float64
 }
 
 type CountryStats struct {
