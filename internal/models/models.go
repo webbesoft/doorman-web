@@ -14,8 +14,6 @@ type Analytics struct {
 	IPHash    string `gorm:"index" json:"-"`
 
 	Country string `gorm:"index" json:"country"`
-	Region  string `json:"region"`
-	City    string `json:"city"`
 
 	IsBot     bool   `gorm:"index;default:false" json:"is_bot"`
 	BotScore  int    `json:"bot_score"`

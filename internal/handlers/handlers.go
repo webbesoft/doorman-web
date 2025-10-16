@@ -43,7 +43,6 @@ type TrackRequest struct {
 	Final       bool   `json:"final"`
 }
 
-
 // Track handles incoming analytics data
 func (h *Handler) Track(c echo.Context) error {
 	var req TrackRequest
@@ -105,8 +104,6 @@ func (h *Handler) Track(c echo.Context) error {
 			IPHash:    ipHash,
 			URL:       req.URL,
 			Country:   geo.Country,
-			Region:    geo.RegionName,
-			City:      geo.City,
 			UserAgent: userAgent,
 			Referrer:  req.Referrer,
 			IsBot:     isBotUA,

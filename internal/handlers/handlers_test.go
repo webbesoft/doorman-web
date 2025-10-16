@@ -24,7 +24,7 @@ func newTestHandler(t *testing.T) (*Handler, func()) {
 		t.Fatalf("failed to open test db: %v", err)
 	}
 
-	if err := db.AutoMigrate(&models.PageView{}); err != nil {
+	if err := db.AutoMigrate(&models.Analytics{}, &models.PageVisit{}); err != nil {
 		t.Fatalf("auto migrate failed: %v", err)
 	}
 
@@ -73,7 +73,7 @@ func TestTrack_Success(t *testing.T) {
 		t.Fatalf("unexpected response body: %v", resp)
 	}
 
-	var pv models.PageView
+	var pv models.Analytics
 	if err := h.DB.First(&pv).Error; err != nil {
 		t.Fatalf("expected a page view in db: %v", err)
 	}

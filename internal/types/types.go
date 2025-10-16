@@ -1,12 +1,12 @@
 package types
 
 type DashboardMetrics struct {
-	TotalPageVisits  int64
-	UniqueVisitors   int64
-	TotalAnalytics   int64
-	AvgDwellTime     float64
-	AvgScrollDepth   float64
-	BotPercentage    float64
+	TotalPageVisits int64
+	UniqueVisitors  int64
+	TotalAnalytics  int64
+	AvgDwellTime    float64
+	AvgScrollDepth  float64
+	BotPercentage   float64
 }
 
 type TopPage struct {
