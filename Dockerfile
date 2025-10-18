@@ -15,9 +15,9 @@ COPY . .
 
 RUN templ generate
 
-RUN CGO_ENABLED=1 GOOS=linux go build -o doorman cmd/doorman
+RUN CGO_ENABLED=1 GOOS=linux go build -o doorman ./cmd/doorman
 
-FROM node AS asset-builder
+FROM node:24-alpine AS asset-builder
 
 COPY --from=builder /app/assets/css/input.css ./assets/css/input.css
 
