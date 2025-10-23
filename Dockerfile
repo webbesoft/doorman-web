@@ -17,20 +17,27 @@ RUN templ generate
 
 RUN CGO_ENABLED=1 GOOS=linux go build -o doorman ./cmd/doorman
 
-FROM node:24-alpine AS asset-builder
+# temp remove asset builder
+# FROM node:24-alpine AS asset-builder
 
-COPY --from=builder /app/assets/css/input.css ./assets/css/input.css
+# RUN apk add --no-cache curl
 
-RUN npm install -g tailwindcss @tailwindcss/cli
+# WORKDIR /app
 
-RUN tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css
+# COPY --from=builder /app/assets/css/input.css ./assets/css/input.css
+
+# RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.15/tailwindcss-linux-x64-musl
+
+# RUN chmod +x tailwindcss-linux-x64
+
+# RUN ./tailwindcss-linux-x64 -i ./assets/css/input.css -o ./assets/css/output.css --minify
 
 FROM alpine:latest AS final
 RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /root/
 
 COPY --from=builder /app/assets /app/assets
-COPY --from=asset-builder /app/assets/css/output.css /app/assets/css/output.css
+# COPY --from=asset-builder /app/assets/css/output.css /app/assets/css/output.css
 COPY --from=builder /app/doorman .
 
 EXPOSE 8080
