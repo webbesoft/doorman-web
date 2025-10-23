@@ -39,10 +39,10 @@ func EnsureDefaultAdmin(db *gorm.DB) error {
 
 	var user models.User
 	if err := db.Where("username = ?", "admin").First(&user).Error; err == gorm.ErrRecordNotFound {
-		log.Println("Creating default admin; password from ADMIN_PASSWORD env var")
-		hashedPassword, _ := models.HashPassword(os.Getenv("ADMIN_PASSWORD"))
+		log.Println("Creating default admin; password from DOORMAN_ADMIN_PASSWORD env var")
+		hashedPassword, _ := models.HashPassword(os.Getenv("DOORMAN_ADMIN_PASSWORD"))
 		defaultUser := models.User{
-			Username: os.Getenv("ADMIN_USER"),
+			Username: os.Getenv("DOORMAN_ADMIN_USER"),
 			Password: hashedPassword,
 		}
 		return db.Create(&defaultUser).Error
@@ -98,7 +98,7 @@ func connectByProvider(provider string) (*gorm.DB, error) {
 		// Default to SQLite. DB_PATH env can override the file path.
 		path := os.Getenv("DB_PATH")
 		if path == "" {
-			path = "analytics.db"
+			path = "dbs/analytics.db"
 		}
 		if provider != "" {
 			log.Printf("DB_PROVIDER=%s not recognized, defaulting to sqlite", provider)
