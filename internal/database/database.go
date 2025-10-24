@@ -98,7 +98,7 @@ func connectByProvider(provider string) (*gorm.DB, error) {
 		// Default to SQLite. DB_PATH env can override the file path.
 		path := os.Getenv("DB_PATH")
 		if path == "" {
-			path = "dbs/analytics.db"
+			path = "analytics.db"
 		}
 		if provider != "" {
 			log.Printf("DB_PROVIDER=%s not recognized, defaulting to sqlite", provider)
