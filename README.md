@@ -29,8 +29,8 @@ accessories:
       app_port: 8080
     env:
       secret:
-        - ADMIN_USER
-        - ADMIN_PASSWORD
+        - DOORMAN_ADMIN_USER
+        - DOORMAN_ADMIN_PASSWORD
         - DOORMAN_SESSION_SECRET
     port: "8080:8080"
     volumes:
@@ -44,12 +44,18 @@ services:
   doorman:
     image: ghcr.io/webbesoft/doorman:latest
     environment:
-      - ADMIN_USER
-      - ADMIN_PASSWORD
+      - DOORMAN_ADMIN_USER
+      - DOORMAN_ADMIN_PASSWORD
       - DOORMAN_SESSION_SECRET
     port: "8080:8080"
     volumes:
       - analytics.db:/app/analytics.db
+```
+
+5. Quick Docker Run
+
+```shell
+docker run --rm -e APP_ENV="production" -e DOORMAN_ADMIN_USER=admin -e DOORMAN_ADMIN_PASSWORD=admin123 -e DOORMAN_SESSION_SECRET=some_secret -e PORT=8080 -p 8080:8080 ghcr.io/webbesoft/doorman:latest
 ```
 
 ## Using a different database
