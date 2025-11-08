@@ -1,3 +1,4 @@
+[![Publish Docker Image](https://github.com/webbesoft/doorman-web/actions/workflows/publish-docker.yml/badge.svg)](https://github.com/webbesoft/doorman-web/actions/workflows/publish-docker.yml)
 [![Go](https://github.com/webbesoft/doorman-web/actions/workflows/go.yml/badge.svg)](https://github.com/webbesoft/doorman-web/actions/workflows/go.yml)
 
 # Doorman Analytics
