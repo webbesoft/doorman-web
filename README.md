@@ -83,3 +83,7 @@ GDPR Compliance Features:
 # License
 
 Licensed under [MIT License](https://github.com/webbesoft/doorman-go/blob/main/LICENSE)
+
+# Disclaimer
+
+This is not meant to replace mature tools like Umami or Plausible. They have solved problems that I have not even encountered yet. This was a learning project which (at least for now) is only suitable for personal use.
