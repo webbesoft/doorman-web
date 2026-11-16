@@ -11,16 +11,16 @@ templ DashboardPage(topReferrers []types.TopReferrer, topPages []types.TopPage, 
 		<script src="/assets/js/dashboard.js" defer></script>
 		<main id="main" class="report">
 			<div class="report-heading"><div><p class="eyebrow">The visitor ledger <span aria-hidden="true">/</span> Overview</p><h1>Every visit leaves a number.</h1></div><a class="index-link" href="#pages">Read the records <span aria-hidden="true">↓</span></a></div>
-			<section class="metrics" aria-label="All-time traffic metrics">
-				<div class="metric primary-metric"><span class="metric-label">01 / Total visits</span><strong>{ fmt.Sprintf("%d", metrics.TotalPageVisits) }</strong><span class="metric-note">All visits, all time</span></div>
-				<div class="metric"><span class="metric-label">02 / Unique visitors</span><strong>{ fmt.Sprintf("%d", metrics.UniqueVisitors) }</strong><span class="metric-note">Individual arrivals</span></div>
+			<section class="metrics" aria-label="Human traffic in the past seven UTC days">
+				<div class="metric primary-metric"><span class="metric-label">01 / Total visits</span><strong>{ fmt.Sprintf("%d", metrics.TotalPageVisits) }</strong><span class="metric-note">Past seven UTC days · bots excluded</span></div>
+				<div class="metric"><span class="metric-label">02 / Daily visitors</span><strong>{ fmt.Sprintf("%d", metrics.UniqueVisitors) }</strong><span class="metric-note">Sum of daily estimates</span></div>
 				<div class="metric"><span class="metric-label">03 / Average dwell</span><strong>{ fmt.Sprintf("%.0f", metrics.AvgDwellTime) }<span class="unit">sec</span></strong><span class="metric-note">Time spent on a page</span></div>
 				<div class="metric"><span class="metric-label">04 / Average scroll</span><strong>{ fmt.Sprintf("%.0f", metrics.AvgScrollDepth) }<span class="unit">%</span></strong><span class="metric-note">How far visitors read</span></div>
 			</section>
 			<section class="traffic-section" aria-labelledby="traffic-title">
-				<div class="section-heading"><div class="section-title"><span class="section-number">01</span><h2 id="traffic-title">Coming &amp; going</h2></div><span class="eyebrow">Daily activity · past week</span></div>
+				<div class="section-heading"><div class="section-title"><span class="section-number">01</span><h2 id="traffic-title">Coming &amp; going</h2></div><span class="eyebrow">Daily activity · seven UTC days</span></div>
 				<div class="chart-key"><span><i class="visits-key"></i> Page visits</span><span><i class="visitors-key"></i> Unique visitors</span><a href="#daily-records">View numbers ↓</a></div>
-				if len(dailyStats) == 0 {
+				if metrics.TotalPageVisits == 0 {
 					<div class="chart-empty"><span class="empty-symbol" aria-hidden="true">↳</span><h3>The door is open.</h3><p>Your first visits will appear here once the tracking script is installed.</p><details class="install-help"><summary>How to start collecting visits</summary><p>Add this before the closing <code>&lt;/head&gt;</code> tag on your website, replacing the domain with your Doorman address.</p><code>&lt;script src="https://your-doorman-domain/assets/js/t.js" async&gt;&lt;/script&gt;</code></details></div>
 				} else {
 					<div class="traffic-chart" role="img" aria-label="Daily page visits and unique visitors. Exact counts are in the daily records below.">
@@ -41,7 +41,7 @@ templ DashboardPage(topReferrers []types.TopReferrer, topPages []types.TopPage, 
 								for _, day := range dailyStats {
 									<tr><th scope="row">{ day.Date }</th><td>{ fmt.Sprintf("%d", day.PageVisits) }</td><td>{ fmt.Sprintf("%d", day.UniqueUsers) }</td></tr>
 								}
-								if len(dailyStats) == 0 {
+								if metrics.TotalPageVisits == 0 {
 									<tr><td colspan="3" class="empty-cell">No daily records yet.</td></tr>
 								}
 							</tbody>
@@ -51,13 +51,13 @@ templ DashboardPage(topReferrers []types.TopReferrer, topPages []types.TopPage, 
 			</section>
 			<div class="records-layout">
 				<section id="pages" class="pages-section" aria-labelledby="pages-title">
-					<div class="section-heading"><div class="section-title"><span class="section-number">02</span><h2 id="pages-title">Where they linger</h2></div><span class="eyebrow">Top pages / all time</span></div>
+					<div class="section-heading"><div class="section-title"><span class="section-number">02</span><h2 id="pages-title">Where they linger</h2></div><span class="eyebrow">Top pages / seven UTC days</span></div>
 					<div class="table-scroll">
 						<table class="pages-table">
 							<caption class="sr-only">Top pages by visits, with average dwell time and scroll depth</caption><thead><tr><th scope="col">Page</th><th scope="col">Visits</th><th scope="col">Avg. time</th><th scope="col">Scroll</th></tr></thead>
 							<tbody>
 								for i, page := range topPages {
-									<tr><th scope="row"><div class="page-name"><span class="row-number">{ fmt.Sprintf("%02d", i+1) }</span><span class="url" title={ page.URL }>{ page.URL }</span></div></th><td class="count">{ fmt.Sprintf("%d", page.Visits) }</td><td>{ fmt.Sprintf("%ds", page.AvgDwellTime) }</td><td>{ fmt.Sprintf("%d%%", page.AvgScroll) }</td></tr>
+									<tr><th scope="row"><div class="page-name"><span class="row-number">{ fmt.Sprintf("%02d", i+1) }</span><span class="url" title={ page.URL }>{ page.URL }</span></div></th><td class="count">{ fmt.Sprintf("%d", page.Visits) }</td><td>{ fmt.Sprintf("%.1fs", page.AvgDwellTime) }</td><td>{ fmt.Sprintf("%.1f%%", page.AvgScroll) }</td></tr>
 								}
 								if len(topPages) == 0 {
 									<tr><td colspan="4" class="empty-cell">No pages on the books yet.<span>Page visits and reading activity will appear here.</span></td></tr>
@@ -69,7 +69,7 @@ templ DashboardPage(topReferrers []types.TopReferrer, topPages []types.TopPage, 
 				<aside class="arrival-records" aria-label="Visitor origins">
 					<section aria-labelledby="sources-title">
 						<div class="section-heading"><div class="section-title"><span class="section-number">03</span><h2 id="sources-title">Who sent them</h2></div></div>
-						<p class="record-subtitle">Traffic sources · all time</p>
+						<p class="record-subtitle">Traffic sources · seven UTC days</p>
 						<ol class="ranked-list">
 							for _, ref := range topReferrers {
 								<li><span class="rank-label" title={ ref.Referrer }>{ ref.Referrer }</span><strong>{ fmt.Sprintf("%d", ref.Count) }</strong></li>
@@ -81,7 +81,7 @@ templ DashboardPage(topReferrers []types.TopReferrer, topPages []types.TopPage, 
 					</section>
 					<section aria-labelledby="countries-title">
 						<div class="section-heading"><div class="section-title"><span class="section-number">04</span><h2 id="countries-title">From further afield</h2></div></div>
-						<p class="record-subtitle">Countries · all time</p>
+						<p class="record-subtitle">Countries · seven UTC days</p>
 						<ol class="ranked-list">
 							for _, country := range topCountries {
 								<li><span class="rank-label">{ country.Country }</span><strong>{ fmt.Sprintf("%d", country.Count) }</strong></li>

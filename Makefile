@@ -1,13 +1,10 @@
-# Match generated code to the templ runtime declared in go.mod.
-TEMPL_VERSION := $(shell go list -m -f '{{.Version}}' github.com/a-h/templ)
-
-.PHONY: develop generate build format release test pre_commit
+.PHONY: develop generate build format release test check pre_commit
 
 develop:
 	APP_ENV=local air
 
 generate:
-	go run github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION) generate
+	go tool templ generate
 
 # The development executable must match the machine running Air.
 build: generate
@@ -20,7 +17,11 @@ release:
 	docker build -t ghcr.io/webbesoft/doorman .
 	docker push ghcr.io/webbesoft/doorman
 
-test:
-	go test ./...
+test: generate
+	go test -race -count=1 ./...
 
-pre_commit: format test
+check: test
+	go vet ./...
+	go build -o ./tmp/doorman ./cmd/doorman
+
+pre_commit: format test check

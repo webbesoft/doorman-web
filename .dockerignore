@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+!.env.example
+.aws
+.codex
+.agents
+*.db
+*.db-*
+*.sqlite*
+tmp
+node_modules
+config/deploy.yml

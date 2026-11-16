@@ -1,6 +1,8 @@
 .env
 
 *.db
+*.db-*
+*.sqlite*
 tmp
 
 # all templ compiled templates

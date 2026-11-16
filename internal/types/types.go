@@ -12,8 +12,8 @@ type DashboardMetrics struct {
 type TopPage struct {
 	URL          string
 	Visits       int64
-	AvgDwellTime int
-	AvgScroll    int
+	AvgDwellTime float64
+	AvgScroll    float64
 }
 
 type TopReferrer struct {

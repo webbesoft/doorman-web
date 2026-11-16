@@ -1,29 +1,19 @@
-FROM golang:1.24-alpine AS builder
-
-LABEL org.opencontainers.image.source=https://github.com/webbesoft/doorman-go
-LABEL org.opencontainers.image.authors="Tawanda Munongo <ejmunongo@gmail.com>"
-
+FROM golang:1.27.4-alpine AS builder
 RUN apk add --no-cache make build-base
-
-RUN go install github.com/a-h/templ/cmd/templ@latest
-
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
-
 COPY . .
+RUN make generate
+RUN CGO_ENABLED=1 go build -trimpath -o /out/doorman ./cmd/doorman
 
-RUN templ generate
-
-RUN CGO_ENABLED=1 GOOS=linux go build -o doorman ./cmd/doorman
-
-FROM alpine:latest AS final
-RUN apk --no-cache add ca-certificates tzdata
-WORKDIR /root/
-
-COPY --from=builder /app/assets /app/assets
-COPY --from=builder /app/doorman .
-
+FROM alpine:3.24 AS final
+LABEL org.opencontainers.image.source=https://github.com/webbesoft/doorman-web
+RUN apk add --no-cache ca-certificates tzdata libgcc && addgroup -S doorman && adduser -S -G doorman doorman && mkdir -p /data && chown doorman:doorman /data
+WORKDIR /app
+COPY --from=builder /out/doorman /app/doorman
+USER doorman
+ENV APP_ENV=production DB_PROVIDER=sqlite DB_PATH=/data/analytics.db
 EXPOSE 8080
-
-CMD ["./doorman"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD ["/app/doorman", "-healthcheck"]
+ENTRYPOINT ["/app/doorman"]

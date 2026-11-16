@@ -61,16 +61,8 @@ func TestTrack_Success(t *testing.T) {
 		t.Fatalf("handler returned error: %v", err)
 	}
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200 got %d body=%s", rec.Code, rec.Body.String())
-	}
-
-	var resp map[string]string
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("invalid json response: %v", err)
-	}
-	if resp["status"] != "ok" {
-		t.Fatalf("unexpected response body: %v", resp)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204 got %d body=%s", rec.Code, rec.Body.String())
 	}
 
 	var pv models.Analytics

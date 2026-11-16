@@ -1,123 +1,140 @@
 package database
 
 import (
+	"context"
+	"errors"
 	"fmt"
-	"log"
+	"net"
+	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
-	"github.com/joho/godotenv"
+	mysqlconfig "github.com/go-sql-driver/mysql"
+	"github.com/webbesoft/doorman/internal/config"
+	"github.com/webbesoft/doorman/internal/models"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-
-	"github.com/webbesoft/doorman/internal/models"
+	"gorm.io/gorm/logger"
 )
 
-func InitDB() (*gorm.DB, error) {
-	provider := os.Getenv("DB_PROVIDER")
-
-	db, err := connectByProvider(provider)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := db.AutoMigrate(&models.Analytics{}, &models.PageVisit{}, &models.User{}); err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-func EnsureDefaultAdmin(db *gorm.DB) error {
-	if os.Getenv("APP_ENV") == "local" {
-		if err := godotenv.Load(); err != nil {
-			log.Println("Warning: .env not loaded:", err)
+func InitDB(c config.Database) (*gorm.DB, error) {
+	var dialector gorm.Dialector
+	switch c.Provider {
+	case "sqlite":
+		path, err := filepath.Abs(c.Path)
+		if err != nil {
+			return nil, err
 		}
-	}
-
-	var user models.User
-	if err := db.Where("username = ?", "admin").First(&user).Error; err == gorm.ErrRecordNotFound {
-		log.Println("Creating default admin; password from DOORMAN_ADMIN_PASSWORD env var")
-		hashedPassword, _ := models.HashPassword(os.Getenv("DOORMAN_ADMIN_PASSWORD"))
-		defaultUser := models.User{
-			Username: os.Getenv("DOORMAN_ADMIN_USER"),
-			Password: hashedPassword,
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			return nil, err
 		}
-		return db.Create(&defaultUser).Error
-	}
-
-	return nil
-}
-
-func connectByProvider(provider string) (*gorm.DB, error) {
-	switch provider {
-	case "postgres", "pg":
-		// Prefer full DATABASE_URL
-		dsn := os.Getenv("DATABASE_URL")
+		u := url.URL{Scheme: "file", Path: path}
+		q := u.Query()
+		q.Set("_foreign_keys", "on")
+		q.Set("_journal_mode", "WAL")
+		q.Set("_busy_timeout", "5000")
+		u.RawQuery = q.Encode()
+		dialector = sqlite.Open(u.String())
+	case "postgres":
+		dsn := c.URL
 		if dsn == "" {
-			host := os.Getenv("DB_HOST")
-			port := os.Getenv("DB_PORT")
-			user := os.Getenv("DB_USER")
-			password := os.Getenv("DB_PASSWORD")
-			dbname := os.Getenv("DB_NAME")
-			sslmode := os.Getenv("DB_SSLMODE")
-			if sslmode == "" {
-				sslmode = "disable"
+			port := c.Port
+			if port == "" {
+				port = "5432"
 			}
-			dsn = fmt.Sprintf(
-				"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=UTC",
-				host, user, password, dbname, port, sslmode,
-			)
+			u := url.URL{Scheme: "postgres", User: url.UserPassword(c.User, c.Password), Host: net.JoinHostPort(c.Host, port), Path: "/" + c.Name}
+			q := u.Query()
+			q.Set("sslmode", c.SSLMode)
+			q.Set("connect_timeout", "5")
+			q.Set("TimeZone", "UTC")
+			u.RawQuery = q.Encode()
+			dsn = u.String()
 		}
-		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-
-		return db, err
-
+		dialector = postgres.Open(dsn)
 	case "mysql":
-		// Prefer full DATABASE_URL if provided
-		dsn := os.Getenv("DATABASE_URL")
+		dsn := c.URL
 		if dsn == "" {
-			host := os.Getenv("DB_HOST")
-			port := os.Getenv("DB_PORT")
+			port := c.Port
 			if port == "" {
 				port = "3306"
 			}
-			user := os.Getenv("DB_USER")
-			password := os.Getenv("DB_PASSWORD")
-			dbname := os.Getenv("DB_NAME")
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-				user, password, host, port, dbname)
+			mc := mysqlconfig.NewConfig()
+			mc.User = c.User
+			mc.Passwd = c.Password
+			mc.Net = "tcp"
+			mc.Addr = net.JoinHostPort(c.Host, port)
+			mc.DBName = c.Name
+			mc.ParseTime = true
+			mc.Loc = time.UTC
+			mc.TLSConfig = "true"
+			mc.Timeout = 5 * time.Second
+			mc.ReadTimeout = 10 * time.Second
+			mc.WriteTimeout = 10 * time.Second
+			dsn = mc.FormatDSN()
 		}
-		db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-
-		return db, err
-
+		dialector = mysql.Open(dsn)
 	default:
-		// Default to SQLite. DB_PATH env can override the file path.
-		path := os.Getenv("DB_PATH")
-		if path == "" {
-			path = "analytics.db"
-		}
-		if provider != "" {
-			log.Printf("DB_PROVIDER=%s not recognized, defaulting to sqlite", provider)
-		}
-		db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
-
-		return db, err
+		return nil, errors.New("unsupported database provider")
 	}
+	db, err := gorm.Open(dialector, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		return nil, errors.New("database connection failed; check connection settings and availability")
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	if c.Provider == "sqlite" {
+		sqlDB.SetMaxOpenConns(1)
+		sqlDB.SetMaxIdleConns(1)
+	} else {
+		sqlDB.SetMaxOpenConns(10)
+		sqlDB.SetMaxIdleConns(5)
+		sqlDB.SetConnMaxLifetime(30 * time.Minute)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := sqlDB.PingContext(ctx); err != nil {
+		sqlDB.Close()
+		return nil, errors.New("database readiness check failed")
+	}
+	return db, nil
 }
 
-// remove page views older than retention period
-func CleanupOldData(db *gorm.DB, retentionDays int) error {
-	cutoff := time.Now().AddDate(0, 0, -retentionDays)
-
-	result := db.Where("created_at < ?", cutoff).Delete(&models.Analytics{})
-	if result.Error != nil {
-		return result.Error
+func EnsureDefaultAdmin(db *gorm.DB, username, password string) error {
+	if username == "" {
+		return errors.New("admin username is required")
 	}
+	var user models.User
+	err := db.Where("username = ?", username).First(&user).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("look up admin: %w", err)
+	}
+	if len(password) < 12 || len(password) > 72 {
+		return errors.New("creating an admin requires a password containing 12 to 72 bytes")
+	}
+	hash, err := models.HashPassword(password)
+	if err != nil {
+		return err
+	}
+	return db.Create(&models.User{Username: username, Password: hash}).Error
+}
 
-	log.Printf("Cleaned up %d old page views (older than %d days)", result.RowsAffected, retentionDays)
-	return nil
+func CleanupOldData(db *gorm.DB, retentionDays int) error {
+	if retentionDays < 1 {
+		return errors.New("retention must be positive")
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("created_at < ?", cutoff).Delete(&models.PageVisit{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("created_at < ? AND id NOT IN (?)", cutoff, tx.Model(&models.PageVisit{}).Select("analytics_id")).Delete(&models.Analytics{}).Error
+	})
 }
