@@ -2,115 +2,49 @@ package handlers
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
+	"github.com/labstack/echo/v4"
+	"github.com/webbesoft/doorman/internal/analytics"
+	"github.com/webbesoft/doorman/internal/models"
+	"github.com/webbesoft/doorman/internal/testutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
-
-	"github.com/labstack/echo/v4"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-
-	"github.com/webbesoft/doorman/internal/models"
 )
 
-func newTestHandler(t *testing.T) (*Handler, func()) {
-	t.Helper()
-
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("failed to open test db: %v", err)
+func TestTrackValidatesBeforePersisting(t *testing.T) {
+	db := testutil.Open(t)
+	h := &Handler{Tracker: analytics.NewTracker(db, strings.Repeat("k", 32), []string{"example.com"}, nil)}
+	e := echo.New()
+	e.POST("/event", h.Track)
+	valid := analytics.Event{VisitID: "123456781234123412341234567890ab", Sequence: 1, URL: "https://example.com/page?token=secret#private", DwellTime: 5, ActiveTime: 3, ScrollDepth: 40}
+	body, _ := json.Marshal(valid)
+	req := httptest.NewRequest(http.MethodPost, "/event", bytes.NewReader(body))
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != 204 {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
 	}
-
-	if err := db.AutoMigrate(&models.Analytics{}, &models.PageVisit{}); err != nil {
-		t.Fatalf("auto migrate failed: %v", err)
+	var view models.PageView
+	if err := db.First(&view).Error; err != nil {
+		t.Fatal(err)
 	}
-
-	cleanup := func() {
-		sqlDB, err := db.DB()
-		if err == nil {
-			sqlDB.Close()
+	if view.URL != "https://example.com/page" {
+		t.Fatal("sensitive URL stored:", view.URL)
+	}
+	for _, body := range []string{"null", "not-json", `{}`, string(body) + ` {}`, strings.Repeat("x", 17000)} {
+		req := httptest.NewRequest("POST", "/event", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		if rec.Code != 400 && rec.Code != 413 {
+			t.Fatalf("invalid payload status=%d", rec.Code)
 		}
 	}
-
-	return &Handler{DB: db}, cleanup
-}
-
-func TestTrack_Success(t *testing.T) {
-	h, cleanup := newTestHandler(t)
-	defer cleanup()
-
-	e := echo.New()
-
-	payload := map[string]string{
-		"url":      "/test-page",
-		"referrer": "https://example.com",
-	}
-	body, _ := json.Marshal(payload)
-
-	req := httptest.NewRequest(http.MethodPost, "/event", bytes.NewReader(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.RemoteAddr = "1.2.3.4:5678"
-
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	if err := h.Track(c); err != nil {
-		t.Fatalf("handler returned error: %v", err)
-	}
-
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("expected status 204 got %d body=%s", rec.Code, rec.Body.String())
-	}
-
-	var pv models.Analytics
-	if err := h.DB.First(&pv).Error; err != nil {
-		t.Fatalf("expected a page view in db: %v", err)
-	}
-
-	if pv.URL != payload["url"] {
-		t.Errorf("expected url %q got %q", payload["url"], pv.URL)
-	}
-	if pv.Referrer != payload["referrer"] {
-		t.Errorf("expected referrer %q got %q", payload["referrer"], pv.Referrer)
-	}
-
-	ip := "1.2.3.4"
-	sum := sha256.Sum256([]byte(ip))
-	expectedHash := fmt.Sprintf("%x", sum[:])
-	if pv.IPHash != expectedHash {
-		t.Errorf("expected ip hash %q got %q", expectedHash, pv.IPHash)
-	}
-}
-
-func TestTrack_BadRequest(t *testing.T) {
-	h, cleanup := newTestHandler(t)
-	defer cleanup()
-
-	e := echo.New()
-
-	req := httptest.NewRequest(http.MethodPost, "/event", bytes.NewReader([]byte("not-json")))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.RemoteAddr = "1.2.3.4:5678"
-
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	if err := h.Track(c); err != nil {
-		t.Fatalf("handler returned error: %v", err)
-	}
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected status 400 got %d body=%s", rec.Code, rec.Body.String())
-	}
-
-	var resp map[string]string
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("invalid json response: %v", err)
-	}
-	if resp["error"] == "" {
-		t.Fatalf("expected error message in response, got: %v", resp)
+	var count int64
+	db.Model(&models.PageView{}).Count(&count)
+	if count != 1 {
+		t.Fatalf("invalid data persisted: %d", count)
 	}
 }

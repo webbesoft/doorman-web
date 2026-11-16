@@ -18,7 +18,7 @@ func Open(t testing.TB) *gorm.DB {
 	}
 	sqlDB, _ := db.DB()
 	t.Cleanup(func() { sqlDB.Close() })
-	if err := database.Migrate(context.Background(), db); err != nil {
+	if err := database.Migrate(context.Background(), db, "test-migration-secret-32-bytes-long"); err != nil {
 		t.Fatal(err)
 	}
 	return db

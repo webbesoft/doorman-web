@@ -1,232 +1,121 @@
 (function () {
-  function getTrackerURL() {
-    var cs = document.currentScript;
-    if (cs && cs.dataset && cs.dataset.endpoint) return cs.dataset.endpoint;
-    if (cs && cs.src) {
-      var u = new URL(cs.src);
-      return u.origin + "/event";
-    }
-    return "/event";
+  "use strict";
+  if (window.__doormanTracking || navigator.doNotTrack === "1" || navigator.globalPrivacyControl) return;
+  if (!window.crypto || !window.crypto.getRandomValues) return;
+  window.__doormanTracking = true;
+
+  var script = document.currentScript;
+  var endpoint = script && script.dataset.endpoint;
+  var trackURL = endpoint || (script && script.src ? new URL(script.src).origin + "/event" : "/event");
+  var idleAfter = 30000;
+  var maxDuration = 86400000;
+
+  function canonicalURL(raw) {
+    var url = new URL(raw, window.location.href);
+    return url.origin + url.pathname;
   }
+  function newID() {
+    var bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, function (value) { return value.toString(16).padStart(2, "0"); }).join("");
+  }
+  function newVisit(url, referrer) {
+    var now = performance.now();
+    return { id: newID(), url: url, referrer: referrer, start: now, tick: now,
+      lastActivity: now, activeMs: 0, scroll: 0, sequence: 0, hidden: document.hidden, finished: false };
+  }
+  var visit = newVisit(canonicalURL(window.location.href), document.referrer ? canonicalURL(document.referrer) : "");
 
-  var TRACK_URL = getTrackerURL();
-
-  var sessionData = {
-    url: window.location.href,
-    referrer: document.referrer,
-    startTime: Date.now(),
-    activeTime: 0,
-    lastActiveCheck: Date.now(),
-    maxScroll: 0,
-    isActive: true,
-    sent: false,
-    lastSendTime: 0,
-  };
-
-  var inactivityTimer;
-  var INACTIVITY_THRESHOLD = 30000; // 30 secs
-
+  function updateActive() {
+    var now = performance.now();
+    if (!visit.hidden && !visit.finished) {
+      visit.activeMs += Math.max(0, Math.min(now, visit.lastActivity + idleAfter) - visit.tick);
+    }
+    visit.tick = now;
+  }
   function markActive() {
-    var now = Date.now();
-    if (!sessionData.isActive) {
-      sessionData.lastActiveCheck = now;
-    }
-    sessionData.isActive = true;
-    resetInactivityTimer();
+    updateActive();
+    visit.lastActivity = performance.now();
   }
-
-  function markInactive() {
-    if (sessionData.isActive) {
-      var now = Date.now();
-      sessionData.activeTime += Math.floor(
-        (now - sessionData.lastActiveCheck) / 1000
-      );
-      sessionData.isActive = false;
-    }
-  }
-
-  function resetInactivityTimer() {
-    clearTimeout(inactivityTimer);
-    inactivityTimer = setTimeout(markInactive, INACTIVITY_THRESHOLD);
-  }
-
-  function updateActiveTime() {
-    if (sessionData.isActive) {
-      var now = Date.now();
-      sessionData.activeTime += Math.floor(
-        (now - sessionData.lastActiveCheck) / 1000
-      );
-      sessionData.lastActiveCheck = now;
-    }
-  }
-
-  function calculateScrollDepth() {
-    var windowHeight = window.innerHeight;
-    var documentHeight = document.documentElement.scrollHeight;
-    var scrollTop =
-      window.scrollY ||
-      window.pageYOffset ||
-      document.documentElement.scrollTop;
-
-    if (documentHeight <= windowHeight) {
-      return 100; // entire page visible
-    }
-
-    var scrollPercent = Math.min(
-      Math.round(((scrollTop + windowHeight) / documentHeight) * 100),
-      100
-    );
-
-    return scrollPercent;
-  }
-
-  var scrollDebounceTimer;
   function updateScroll() {
-    clearTimeout(scrollDebounceTimer);
-    scrollDebounceTimer = setTimeout(function () {
-      var depth = calculateScrollDepth();
-      if (depth > sessionData.maxScroll) {
-        sessionData.maxScroll = depth;
-      }
-      markActive();
-    }, 100);
-  }
-
-  // use beacon API to send data
-  function sendData(final) {
-    if (sessionData.sent && !final) return;
-
-    // Prevent duplicate sends within 1 second
-    var now = Date.now();
-    if (now - sessionData.lastSendTime < 1000 && !final) return;
-
-    updateActiveTime();
-
-    var dwellTime = Math.floor((now - sessionData.startTime) / 1000);
-
-    var payload = {
-      url: sessionData.url,
-      referrer: sessionData.referrer,
-      dwellTime: dwellTime,
-      activeTime: sessionData.activeTime,
-      scrollDepth: sessionData.maxScroll,
-      final: final || false,
-    };
-
-    var payloadStr = JSON.stringify(payload);
-    var sent = false;
-
-    // Try sendBeacon first (more reliable on page unload)
-    if (navigator.sendBeacon) {
-      try {
-        var blob = new Blob([payloadStr], { type: "application/json" });
-        sent = navigator.sendBeacon(TRACK_URL, payloadStr);
-      } catch (e) {
-        sent = false;
-      }
-    }
-
-    // Fallback to fetch
-    if (!sent) {
-      fetch(TRACK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payloadStr,
-        keepalive: true,
-        credentials: "omit",
-      }).catch(function () {
-        // silently fail
-      });
-    }
-
-    sessionData.lastSendTime = now;
-
-    if (final) {
-      sessionData.sent = true;
+    var height = document.documentElement.scrollHeight;
+    if (height > 0) {
+      var top = window.scrollY || document.documentElement.scrollTop || 0;
+      visit.scroll = Math.max(visit.scroll, Math.min(100, Math.max(0, Math.round((top + window.innerHeight) / height * 100))));
     }
   }
-
-  // heartbeat (30s while active)
-  setInterval(function () {
-    if (sessionData.isActive || sessionData.activeTime > 0) {
-      sendData(false);
+  function deliver(payload, final, attempt) {
+    var body = JSON.stringify(payload);
+    if ((final || document.hidden) && navigator.sendBeacon) {
+      try { if (navigator.sendBeacon(trackURL, body)) return; } catch (_) {}
     }
-  }, 30000);
+    if (!window.fetch) return;
+    window.fetch(trackURL, { method: "POST", headers: { "Content-Type": "text/plain;charset=UTF-8" },
+      body: body, keepalive: true, credentials: "omit" }).then(function (response) {
+      if ((response.status === 429 || response.status >= 500) && attempt < 2 && !document.hidden) {
+        setTimeout(function () { deliver(payload, final, attempt + 1); }, 1000 * Math.pow(2, attempt));
+      }
+    }).catch(function () {
+      if (attempt < 2 && !document.hidden) {
+        setTimeout(function () { deliver(payload, final, attempt + 1); }, 1000 * Math.pow(2, attempt));
+      }
+    });
+  }
+  function send(final) {
+    if (visit.finished) return;
+    updateActive();
+    var dwell = Math.min(86400, Math.max(0, Math.floor((performance.now() - visit.start) / 1000)));
+    var payload = { visitId: visit.id, sequence: ++visit.sequence, url: visit.url, referrer: visit.referrer,
+      dwellTime: dwell, activeTime: Math.min(dwell, Math.floor(visit.activeMs / 1000)), scrollDepth: visit.scroll, final: !!final };
+    if (final) visit.finished = true;
+    deliver(payload, final, 0);
+  }
+  function navigate() {
+    var next = canonicalURL(window.location.href);
+    if (next === visit.url) return;
+    var previous = visit.url;
+    send(true);
+    visit = newVisit(next, previous);
+    send(false);
+  }
+  function heartbeat() {
+    if (visit.finished || document.hidden) return;
+    if (performance.now() - visit.start >= maxDuration) {
+      send(true);
+      visit = newVisit(visit.url, visit.referrer);
+    }
+    updateScroll();
+    send(false);
+  }
 
-  // send on visibility change
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden) {
-      updateActiveTime();
-      sendData(false);
-    } else {
-      sessionData.lastActiveCheck = Date.now();
-      markActive();
+    updateActive();
+    visit.hidden = document.hidden;
+    visit.tick = performance.now();
+    if (!document.hidden) visit.lastActivity = visit.tick;
+    send(false);
+  });
+  window.addEventListener("pagehide", function () { send(true); });
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) {
+      visit.finished = false;
+      visit.hidden = document.hidden;
+      visit.tick = performance.now();
+      visit.lastActivity = visit.tick;
+      heartbeat();
     }
   });
-
-  window.addEventListener("beforeunload", function () {
-    sendData(true);
+  ["mousedown", "keydown", "touchstart", "click"].forEach(function (name) {
+    document.addEventListener(name, markActive, { passive: true });
   });
-
-  window.addEventListener("pagehide", function () {
-    sendData(true);
+  window.addEventListener("scroll", function () { markActive(); updateScroll(); }, { passive: true });
+  window.addEventListener("load", updateScroll);
+  ["pushState", "replaceState"].forEach(function (name) {
+    var original = history[name];
+    history[name] = function () { var result = original.apply(history, arguments); navigate(); return result; };
   });
-
-  // activity liteners
-  ["mousedown", "keydown", "touchstart", "click"].forEach(function (event) {
-    document.addEventListener(event, markActive, { passive: true });
-  });
-
-  window.addEventListener("scroll", updateScroll, { passive: true });
-
-  setTimeout(function () {
-    sessionData.maxScroll = calculateScrollDepth();
-  }, 1000);
-
-  function trackInitialLoad() {
-    markActive();
-
-    setTimeout(function () {
-      sendData(false);
-    }, 5000);
-  }
-
-  if (document.readyState === "complete") {
-    trackInitialLoad();
-  } else {
-    window.addEventListener("load", trackInitialLoad);
-  }
-
-  // Track navigation for SPAs
-  var originalPushState = history.pushState;
-  var originalReplaceState = history.replaceState;
-
-  function handleNavigation() {
-    // Send final data for current page
-    sendData(true);
-
-    // Reset session data for new page
-    setTimeout(function () {
-      sessionData.url = window.location.href;
-      sessionData.startTime = Date.now();
-      sessionData.activeTime = 0;
-      sessionData.lastActiveCheck = Date.now();
-      sessionData.maxScroll = calculateScrollDepth();
-      sessionData.isActive = true;
-      sessionData.sent = false;
-      markActive();
-    }, 100);
-  }
-
-  history.pushState = function () {
-    originalPushState.apply(history, arguments);
-    handleNavigation();
-  };
-
-  history.replaceState = function () {
-    originalReplaceState.apply(history, arguments);
-    handleNavigation();
-  };
-
-  window.addEventListener("popstate", handleNavigation);
+  window.addEventListener("popstate", navigate);
+  setInterval(heartbeat, 30000);
+  updateScroll();
+  send(false);
 })();

@@ -131,10 +131,27 @@ func CleanupOldData(db *gorm.DB, retentionDays int) error {
 		return errors.New("retention must be positive")
 	}
 	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
-	return db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("created_at < ?", cutoff).Delete(&models.PageVisit{}).Error; err != nil {
+
+	dayCutoff := time.Now().UTC().AddDate(0, 0, 1-retentionDays).Format("2006-01-02")
+	if err := deleteBatches(db, &models.PageView{}, "day < ?", dayCutoff); err != nil {
+		return err
+	}
+	if err := deleteBatches(db, &models.PageVisit{}, "created_at < ?", cutoff); err != nil {
+		return err
+	}
+	return deleteBatches(db, &models.Analytics{}, "created_at < ? AND id NOT IN (?)", cutoff, db.Model(&models.PageVisit{}).Select("analytics_id"))
+}
+func deleteBatches(db *gorm.DB, model any, condition string, args ...any) error {
+	for {
+		var ids []string
+		if err := db.Model(model).Where(condition, args...).Limit(500).Pluck("id", &ids).Error; err != nil {
 			return err
 		}
-		return tx.Where("created_at < ? AND id NOT IN (?)", cutoff, tx.Model(&models.PageVisit{}).Select("analytics_id")).Delete(&models.Analytics{}).Error
-	})
+		if len(ids) == 0 {
+			return nil
+		}
+		if err := db.Where("id IN ?", ids).Delete(model).Error; err != nil {
+			return err
+		}
+	}
 }

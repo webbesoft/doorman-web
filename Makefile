@@ -19,6 +19,7 @@ release:
 
 test: generate
 	go test -race -count=1 ./...
+	node --test tests/*.test.cjs
 
 check: test
 	go vet ./...

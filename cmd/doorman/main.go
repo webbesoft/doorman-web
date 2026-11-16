@@ -15,10 +15,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	assets "github.com/webbesoft/doorman"
+	"github.com/webbesoft/doorman/internal/analytics"
 	"github.com/webbesoft/doorman/internal/auth"
-"github.com/webbesoft/doorman/internal/analytics"
 	"github.com/webbesoft/doorman/internal/config"
 	"github.com/webbesoft/doorman/internal/database"
+	"github.com/webbesoft/doorman/internal/geolocation"
 	"github.com/webbesoft/doorman/internal/handlers"
 	authMiddleware "github.com/webbesoft/doorman/internal/middleware"
 	"github.com/webbesoft/doorman/internal/services"
@@ -62,10 +63,10 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if *migrate {
-		return database.Migrate(ctx, db)
+		return database.Migrate(ctx, db, cfg.SessionSecret)
 	}
 	if cfg.Environment == "local" {
-		if err := database.Migrate(ctx, db); err != nil {
+		if err := database.Migrate(ctx, db, cfg.SessionSecret); err != nil {
 			return err
 		}
 	}
@@ -140,7 +141,7 @@ func newServer(cfg config.Config, db *gorm.DB) *echo.Echo {
 	}
 	manager := auth.New(db, cfg.SessionSecret, cfg.SecureCookies())
 	a := &handlers.AuthHandler{Auth: manager}
-	h := &handlers.Handler{Tracker: analytics.NewTracker(db,cfg.SessionSecret,cfg.AllowedHosts,services.NewGeoService(cfg.GeoAPIKey)), Reports: analytics.NewReports(db)}
+	h := &handlers.Handler{Tracker: analytics.NewTracker(db, cfg.SessionSecret, cfg.AllowedHosts, geolocation.NewGeoService(cfg.GeoAPIKey)), Reports: analytics.NewReports(db)}
 	protection := echo.WrapMiddleware(http.NewCrossOriginProtection().Handler)
 	e.POST("/event", h.Track, middleware.CORSWithConfig(middleware.CORSConfig{AllowOrigins: []string{"*"}, AllowMethods: []string{http.MethodPost}, AllowHeaders: []string{echo.HeaderContentType}}))
 	e.GET("/login", a.LoginPage)

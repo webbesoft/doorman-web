@@ -79,20 +79,20 @@ type AuthSession struct {
 
 // PageView represents one navigation. Heartbeats update this record atomically.
 type PageView struct {
- ID string `gorm:"primaryKey;size:64"`
- SiteHost string `gorm:"size:253;not null;index:idx_page_view_site_day,priority:1"`
- Day string `gorm:"size:10;not null;index;index:idx_page_view_site_day,priority:2"`
- VisitorKey string `gorm:"size:64;not null;index"`
- URL string `gorm:"size:2048;not null"`
- Referrer string `gorm:"size:253"`
- Country string `gorm:"size:128"`
- DwellTime int64 `gorm:"not null"`
- ActiveTime int64 `gorm:"not null"`
- ScrollDepth int `gorm:"not null"`
- Sequence int64 `gorm:"not null"`
- Final bool `gorm:"not null"`
- IsBot bool `gorm:"not null;index"`
- Legacy bool `gorm:"not null"`
- CreatedAt time.Time `gorm:"index"`
- UpdatedAt time.Time
+	ID          string    `gorm:"primaryKey;size:64"`
+	SiteHost    string    `gorm:"size:253;not null;index:idx_page_view_site_day,priority:1"`
+	Day         string    `gorm:"size:10;not null;index;index:idx_page_view_site_day,priority:2"`
+	VisitorKey  string    `gorm:"size:64;not null;index"`
+	URL         string    `gorm:"size:2048;not null"`
+	Referrer    string    `gorm:"size:253"`
+	Country     string    `gorm:"size:128"`
+	DwellTime   int64     `gorm:"not null"`
+	ActiveTime  int64     `gorm:"not null"`
+	ScrollDepth int       `gorm:"not null"`
+	Sequence    int64     `gorm:"not null"`
+	Final       bool      `gorm:"not null"`
+	IsBot       bool      `gorm:"not null;index"`
+	Legacy      bool      `gorm:"not null"`
+	CreatedAt   time.Time `gorm:"index"`
+	UpdatedAt   time.Time
 }
