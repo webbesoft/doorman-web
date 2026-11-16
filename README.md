@@ -77,6 +77,11 @@ GDPR Compliance Features:
 - No cross-site tracking
 - No persistent identifiers
 
+## Styling
+
+The UI uses plain CSS in `assets/css/doorman.css`, served directly by Go.
+Edit that stylesheet to change the design; no CSS framework, Node.js, or CSS build step is required.
+
 # Contribute
 
 ...coming soon

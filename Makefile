@@ -1,7 +1,7 @@
 # Match generated code to the templ runtime declared in go.mod.
 TEMPL_VERSION := $(shell go list -m -f '{{.Version}}' github.com/a-h/templ)
 
-.PHONY: develop generate build format release tw_watch test pre_commit
+.PHONY: develop generate build format release test pre_commit
 
 develop:
 	APP_ENV=local air
@@ -19,9 +19,6 @@ format:
 release:
 	docker build -t ghcr.io/webbesoft/doorman .
 	docker push ghcr.io/webbesoft/doorman
-
-tw_watch:
-	tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css --watch
 
 test:
 	go test ./...

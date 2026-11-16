@@ -6,7 +6,4 @@ tmp
 # all templ compiled templates
 templates/**/*_templ.go
 
-# compiles css
-# assets/css/output.css
-
 config/deploy.yml
