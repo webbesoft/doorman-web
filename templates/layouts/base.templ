@@ -6,11 +6,24 @@ templ Base(title string) {
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<title>{ title } - Doorman</title>
-			<link href="assets/css/output.css" rel="stylesheet"/>
+			<meta name="theme-color" content="#811e35"/>
+			<title>{ title } · Doorman Analytics</title>
+			<link href="/assets/css/doorman.css" rel="stylesheet"/>
+			<link href="/assets/favicon.svg" rel="icon" type="image/svg+xml"/>
 		</head>
-		<body class="">
+		<body>
 			{ children... }
 		</body>
 	</html>
+}
+
+templ Brand() {
+	<a class="brand" href="/" aria-label="Doorman Analytics home">
+		<svg class="door-mark" viewBox="0 0 36 44" fill="none" aria-hidden="true"><path d="M3 41V3h27v38M3 41h30M11 41V11l19-8v38" stroke="currentColor" stroke-width="2.5"></path><path d="M23 23v5" stroke="currentColor" stroke-width="2.5"></path></svg>
+		<span>doorman<span class="brand-caption">ANALYTICS</span></span>
+	</a>
+}
+
+templ Footer() {
+	<footer class="site-footer"><span>Doorman Analytics <span aria-hidden="true">/</span> A little less guesswork.</span><a href="https://github.com/webbesoft/doorman-web">Source on GitHub <span aria-hidden="true">↗</span></a></footer>
 }

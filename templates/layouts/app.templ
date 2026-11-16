@@ -2,8 +2,12 @@ package layouts
 
 templ AppLayout(title string) {
 	@Base(title) {
-		<body class="w-full">
-			{ children... }
-		</body>
+		<a class="skip-link" href="#main">Skip to content</a>
+		<header class="masthead">
+			@Brand()
+			<div class="masthead-meta"><span class="edition">YOUR TRAFFIC, ACCOUNTED FOR.</span><form action="/logout" method="post"><button class="text-button" type="submit">Sign out <span aria-hidden="true">↗</span></button></form></div>
+		</header>
+		{ children... }
+		@Footer()
 	}
 }

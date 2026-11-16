@@ -6,302 +6,94 @@ import (
 	"github.com/webbesoft/doorman/templates/layouts"
 )
 
-templ DashboardPage(
-	topReferrers []types.TopReferrer,
-	topPages []types.TopPage,
-	dailyStats []types.DailyStats,
-	topCountries []types.CountryStats,
-	metrics types.DashboardMetrics,
-) {
-	@layouts.AppLayout("Dashboard") {
-		<div class="min-h-screen bg-slate-900">
-			<nav class="bg-slate-800 border-b border-slate-700">
-				<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div class="flex justify-between h-16">
-						<div class="flex items-center space-x-3">
-							<div class="flex items-center justify-center w-10 h-10 bg-blue-600 rounded-lg">
-								<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-								</svg>
-							</div>
-							<div>
-								<h1 class="text-xl font-bold text-white">Doorman</h1>
-								<p class="text-xs text-slate-400">Analytics</p>
-							</div>
-						</div>
-						<div class="flex items-center space-x-3">
-							<div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-slate-700 rounded-lg">
-								<div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-								<span class="text-xs text-slate-300">Live</span>
-							</div>
-							<form action="/logout" method="post" class="inline">
-								<button type="submit" class="flex items-center space-x-2 px-3 py-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-colors">
-									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-									</svg>
-									<span class="text-sm">Logout</span>
-								</button>
-							</form>
+templ DashboardPage(topReferrers []types.TopReferrer, topPages []types.TopPage, dailyStats []types.DailyStats, topCountries []types.CountryStats, metrics types.DashboardMetrics) {
+	@layouts.AppLayout("Visitor ledger") {
+		<script src="/assets/js/dashboard.js" defer></script>
+		<main id="main" class="report">
+			<div class="report-heading"><div><p class="eyebrow">The visitor ledger <span aria-hidden="true">/</span> Overview</p><h1>Every visit leaves a number.</h1></div><a class="index-link" href="#pages">Read the records <span aria-hidden="true">↓</span></a></div>
+			<section class="metrics" aria-label="All-time traffic metrics">
+				<div class="metric primary-metric"><span class="metric-label">01 / Total visits</span><strong>{ fmt.Sprintf("%d", metrics.TotalPageVisits) }</strong><span class="metric-note">All visits, all time</span></div>
+				<div class="metric"><span class="metric-label">02 / Unique visitors</span><strong>{ fmt.Sprintf("%d", metrics.UniqueVisitors) }</strong><span class="metric-note">Individual arrivals</span></div>
+				<div class="metric"><span class="metric-label">03 / Average dwell</span><strong>{ fmt.Sprintf("%.0f", metrics.AvgDwellTime) }<span class="unit">sec</span></strong><span class="metric-note">Time spent on a page</span></div>
+				<div class="metric"><span class="metric-label">04 / Average scroll</span><strong>{ fmt.Sprintf("%.0f", metrics.AvgScrollDepth) }<span class="unit">%</span></strong><span class="metric-note">How far visitors read</span></div>
+			</section>
+			<section class="traffic-section" aria-labelledby="traffic-title">
+				<div class="section-heading"><div class="section-title"><span class="section-number">01</span><h2 id="traffic-title">Coming &amp; going</h2></div><span class="eyebrow">Daily activity · past week</span></div>
+				<div class="chart-key"><span><i class="visits-key"></i> Page visits</span><span><i class="visitors-key"></i> Unique visitors</span><a href="#daily-records">View numbers ↓</a></div>
+				if len(dailyStats) == 0 {
+					<div class="chart-empty"><span class="empty-symbol" aria-hidden="true">↳</span><h3>The door is open.</h3><p>Your first visits will appear here once the tracking script is installed.</p><details class="install-help"><summary>How to start collecting visits</summary><p>Add this before the closing <code>&lt;/head&gt;</code> tag on your website, replacing the domain with your Doorman address.</p><code>&lt;script src="https://your-doorman-domain/assets/js/t.js" async&gt;&lt;/script&gt;</code></details></div>
+				} else {
+					<div class="traffic-chart" role="img" aria-label="Daily page visits and unique visitors. Exact counts are in the daily records below.">
+						<div class="chart-scale" aria-hidden="true"><span>{ fmt.Sprintf("%d", chartMaximum(dailyStats)) }</span><span>{ fmt.Sprintf("%d", chartMaximum(dailyStats)/2) }</span><span>0</span></div>
+						<div class="chart-plot">
+							for _, day := range dailyStats {
+								<div class="chart-day"><div class="bar-pair"><div class="bar visits-bar" style={ barHeight(day.PageVisits, chartMaximum(dailyStats)) }><span class="bar-value">{ fmt.Sprintf("%d", day.PageVisits) }</span></div><div class="bar visitors-bar" style={ barHeight(day.UniqueUsers, chartMaximum(dailyStats)) }></div></div><span class="chart-date">{ shortDate(day.Date) }</span></div>
+							}
 						</div>
 					</div>
-				</div>
-			</nav>
-			<main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-					<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
-						<div class="flex items-start justify-between">
-							<div class="flex-1">
-								<p class="text-slate-400 text-sm font-medium mb-1">Total Visits</p>
-								<p class="text-3xl font-bold text-white">{ fmt.Sprintf("%d", metrics.TotalPageVisits) }</p>
-							</div>
-							<div class="flex items-center justify-center w-10 h-10 bg-blue-500/10 rounded-lg">
-								<svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-								</svg>
-							</div>
-						</div>
-					</div>
-					<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
-						<div class="flex items-start justify-between">
-							<div class="flex-1">
-								<p class="text-slate-400 text-sm font-medium mb-1">Unique Visitors</p>
-								<p class="text-3xl font-bold text-white">{ fmt.Sprintf("%d", metrics.UniqueVisitors) }</p>
-							</div>
-							<div class="flex items-center justify-center w-10 h-10 bg-emerald-500/10 rounded-lg">
-								<svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-								</svg>
-							</div>
-						</div>
-					</div>
-					<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
-						<div class="flex items-start justify-between">
-							<div class="flex-1">
-								<p class="text-slate-400 text-sm font-medium mb-1">Avg Dwell Time</p>
-								<p class="text-3xl font-bold text-white">{ fmt.Sprintf("%.0fs", metrics.AvgDwellTime) }</p>
-							</div>
-							<div class="flex items-center justify-center w-10 h-10 bg-purple-500/10 rounded-lg">
-								<svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-								</svg>
-							</div>
-						</div>
-					</div>
-					<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">
-						<div class="flex items-start justify-between">
-							<div class="flex-1">
-								<p class="text-slate-400 text-sm font-medium mb-1">Avg Scroll</p>
-								<p class="text-3xl font-bold text-white">{ fmt.Sprintf("%.0f%%", metrics.AvgScrollDepth) }</p>
-							</div>
-							<div class="flex items-center justify-center w-10 h-10 bg-amber-500/10 rounded-lg">
-								<svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
-								</svg>
-							</div>
-						</div>
-					</div>
-				</div>
-				<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-					<!-- Traffic Chart -->
-					<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
-						<div class="flex items-center justify-between mb-4">
-							<h3 class="text-lg font-semibold text-white">Traffic Overview</h3>
-							<span class="text-xs text-slate-400">Last 7 days</span>
-						</div>
-						<div class="relative h-64">
-							<canvas id="trafficChart"></canvas>
-						</div>
-					</div>
-					<!-- Top Countries -->
-					<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
-						<h3 class="text-lg font-semibold text-white mb-4">Top Countries</h3>
-						<div class="space-y-3">
-							if len(topCountries) == 0 {
-								<div class="flex items-center justify-center h-48 text-slate-500">
-									<p class="text-sm">No location data yet</p>
-								</div>
-							} else {
-								for _, country := range topCountries {
-									<div class="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-										<span class="text-sm text-slate-300">{ country.Country }</span>
-										<span class="text-sm font-semibold text-white">{ fmt.Sprintf("%d", country.Count) }</span>
-									</div>
+				}
+				<details id="daily-records" class="daily-records">
+					<summary>Daily records <span>Exact counts for the past week</span></summary>
+					<div class="table-scroll">
+						<table>
+							<caption class="sr-only">Daily traffic counts</caption><thead><tr><th scope="col">Date</th><th scope="col">Page visits</th><th scope="col">Unique visitors</th></tr></thead>
+							<tbody>
+								for _, day := range dailyStats {
+									<tr><th scope="row">{ day.Date }</th><td>{ fmt.Sprintf("%d", day.PageVisits) }</td><td>{ fmt.Sprintf("%d", day.UniqueUsers) }</td></tr>
 								}
-							}
-						</div>
+								if len(dailyStats) == 0 {
+									<tr><td colspan="3" class="empty-cell">No daily records yet.</td></tr>
+								}
+							</tbody>
+						</table>
 					</div>
-				</div>
-				<!-- Tables Row -->
-				<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-					<!-- Top Pages -->
-					<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
-						<h3 class="text-lg font-semibold text-white mb-4">Top Pages</h3>
-						<div class="overflow-x-auto">
-							if len(topPages) == 0 {
-								<div class="flex items-center justify-center h-48 text-slate-500">
-									<p class="text-sm">No page data yet</p>
-								</div>
-							} else {
-								<table class="w-full">
-									<thead>
-										<tr class="border-b border-slate-700">
-											<th class="text-left text-xs font-medium text-slate-400 pb-3">Page</th>
-											<th class="text-right text-xs font-medium text-slate-400 pb-3">Visits</th>
-											<th class="text-right text-xs font-medium text-slate-400 pb-3">Avg Time</th>
-											<th class="text-right text-xs font-medium text-slate-400 pb-3">Avg Scroll</th>
-										</tr>
-									</thead>
-									<tbody class="divide-y divide-slate-700">
-										for _, page := range topPages {
-											<tr class="hover:bg-slate-700/30">
-												<td class="py-3 text-sm text-slate-300 max-w-xs truncate">{ page.URL }</td>
-												<td class="py-3 text-sm text-white text-right font-medium">{ fmt.Sprintf("%d", page.Visits) }</td>
-												<td class="py-3 text-sm text-slate-400 text-right">{ fmt.Sprintf("%ds", page.AvgDwellTime) }</td>
-												<td class="py-3 text-sm text-slate-400 text-right">{ fmt.Sprintf("%d%%", page.AvgScroll) }</td>
-											</tr>
-										}
-									</tbody>
-								</table>
-							}
-						</div>
+				</details>
+			</section>
+			<div class="records-layout">
+				<section id="pages" class="pages-section" aria-labelledby="pages-title">
+					<div class="section-heading"><div class="section-title"><span class="section-number">02</span><h2 id="pages-title">Where they linger</h2></div><span class="eyebrow">Top pages / all time</span></div>
+					<div class="table-scroll">
+						<table class="pages-table">
+							<caption class="sr-only">Top pages by visits, with average dwell time and scroll depth</caption><thead><tr><th scope="col">Page</th><th scope="col">Visits</th><th scope="col">Avg. time</th><th scope="col">Scroll</th></tr></thead>
+							<tbody>
+								for i, page := range topPages {
+									<tr><th scope="row"><div class="page-name"><span class="row-number">{ fmt.Sprintf("%02d", i+1) }</span><span class="url" title={ page.URL }>{ page.URL }</span></div></th><td class="count">{ fmt.Sprintf("%d", page.Visits) }</td><td>{ fmt.Sprintf("%ds", page.AvgDwellTime) }</td><td>{ fmt.Sprintf("%d%%", page.AvgScroll) }</td></tr>
+								}
+								if len(topPages) == 0 {
+									<tr><td colspan="4" class="empty-cell">No pages on the books yet.<span>Page visits and reading activity will appear here.</span></td></tr>
+								}
+							</tbody>
+						</table>
 					</div>
-					<!-- Top Referrers -->
-					<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">
-						<h3 class="text-lg font-semibold text-white mb-4">Traffic Sources</h3>
-						<div class="overflow-x-auto">
-							if len(topReferrers) == 0 {
-								<div class="flex items-center justify-center h-48 text-slate-500">
-									<p class="text-sm">No referrer data yet</p>
-								</div>
-							} else {
-								<table class="w-full">
-									<thead>
-										<tr class="border-b border-slate-700">
-											<th class="text-left text-xs font-medium text-slate-400 pb-3">Source</th>
-											<th class="text-right text-xs font-medium text-slate-400 pb-3">Visits</th>
-										</tr>
-									</thead>
-									<tbody class="divide-y divide-slate-700">
-										for _, ref := range topReferrers {
-											<tr class="hover:bg-slate-700/30">
-												<td class="py-3 text-sm text-slate-300 max-w-xs truncate">{ ref.Referrer }</td>
-												<td class="py-3 text-sm text-white text-right font-medium">{ fmt.Sprintf("%d", ref.Count) }</td>
-											</tr>
-										}
-									</tbody>
-								</table>
+				</section>
+				<aside class="arrival-records" aria-label="Visitor origins">
+					<section aria-labelledby="sources-title">
+						<div class="section-heading"><div class="section-title"><span class="section-number">03</span><h2 id="sources-title">Who sent them</h2></div></div>
+						<p class="record-subtitle">Traffic sources · all time</p>
+						<ol class="ranked-list">
+							for _, ref := range topReferrers {
+								<li><span class="rank-label" title={ ref.Referrer }>{ ref.Referrer }</span><strong>{ fmt.Sprintf("%d", ref.Count) }</strong></li>
 							}
-						</div>
-					</div>
-				</div>
-			</main>
-		</div>
-		<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
-		<script>
-			document.addEventListener('DOMContentLoaded', function() {
-				const ctx = document.getElementById('trafficChart');
-				if (!ctx) return;
-
-				console.log({{ templ.JSONString(dailyStats) }});
-				const dailyStatsJSON = {{ templ.JSONString(dailyStats) }};
-				const dailyStats = JSON.parse(dailyStatsJSON);
-
-
-				const chartData = {
-					labels: dailyStats.map(d => d.Date),
-					datasets: [
-						{
-							label: 'Page Visits',
-							data: dailyStats.map(d => d.PageVisits),
-							borderColor: 'rgb(59, 130, 246)',
-							backgroundColor: 'rgba(59, 130, 246, 0.1)',
-							borderWidth: 2,
-							fill: true,
-							tension: 0.4,
-							pointRadius: 4,
-							pointHoverRadius: 6,
-						},
-						{
-							label: 'Unique Users',
-							data: dailyStats.map(d => d.UniqueUsers),
-							borderColor: 'rgb(16, 185, 129)',
-							backgroundColor: 'rgba(16, 185, 129, 0.1)',
-							borderWidth: 2,
-							fill: true,
-							tension: 0.4,
-							pointRadius: 4,
-							pointHoverRadius: 6,
+						</ol>
+						if len(topReferrers) == 0 {
+							<p class="list-empty">No arrivals to trace yet.</p>
 						}
-					]
-				};
-
-				new Chart(ctx, {
-					type: 'line',
-					data: chartData,
-					options: {
-						responsive: true,
-						maintainAspectRatio: false,
-						interaction: {
-							intersect: false,
-							mode: 'index'
-						},
-						plugins: {
-							legend: {
-								display: true,
-								position: 'bottom',
-								labels: {
-									color: 'rgb(148, 163, 184)',
-									padding: 12,
-									usePointStyle: true,
-									pointStyle: 'circle'
-								}
-							},
-							tooltip: {
-								backgroundColor: 'rgba(15, 23, 42, 0.9)',
-								titleColor: 'white',
-								bodyColor: 'rgb(203, 213, 225)',
-								borderColor: 'rgba(71, 85, 105, 0.5)',
-								borderWidth: 1,
-								cornerRadius: 8,
-								padding: 12
+					</section>
+					<section aria-labelledby="countries-title">
+						<div class="section-heading"><div class="section-title"><span class="section-number">04</span><h2 id="countries-title">From further afield</h2></div></div>
+						<p class="record-subtitle">Countries · all time</p>
+						<ol class="ranked-list">
+							for _, country := range topCountries {
+								<li><span class="rank-label">{ country.Country }</span><strong>{ fmt.Sprintf("%d", country.Count) }</strong></li>
 							}
-						},
-						scales: {
-							x: {
-								grid: {
-									display: false
-								},
-								border: {
-									color: 'rgb(51, 65, 85)'
-								},
-								ticks: {
-									color: 'rgb(148, 163, 184)',
-									font: {
-										size: 11
-									}
-								}
-							},
-							y: {
-								beginAtZero: true,
-								grid: {
-									color: 'rgba(71, 85, 105, 0.3)',
-									drawBorder: false
-								},
-								border: {
-									display: false
-								},
-								ticks: {
-									color: 'rgb(148, 163, 184)',
-									font: {
-										size: 11
-									}
-								}
-							}
+						</ol>
+						if len(topCountries) == 0 {
+							<p class="list-empty">The map is quiet for now.</p>
 						}
-					}
-				});
-			});
-		</script>
+					</section>
+				</aside>
+			</div>
+			<div class="report-end"><span class="square"></span><p>Count the visits. Keep the perspective.</p><a href="#main">Back to top ↑</a></div>
+		</main>
 	}
 }
