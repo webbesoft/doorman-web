@@ -24,7 +24,7 @@
     return { id: newID(), url: url, referrer: referrer, start: now, tick: now,
       lastActivity: now, activeMs: 0, scroll: 0, sequence: 0, hidden: document.hidden, finished: false };
   }
-  var visit = newVisit(canonicalURL(window.location.href), document.referrer ? canonicalURL(document.referrer) : "");
+  var visit = newVisit(canonicalURL(window.location.href), document.referrer ? new URL(document.referrer).origin : "");
 
   function updateActive() {
     var now = performance.now();
@@ -43,6 +43,19 @@
       var top = window.scrollY || document.documentElement.scrollTop || 0;
       visit.scroll = Math.max(visit.scroll, Math.min(100, Math.max(0, Math.round((top + window.innerHeight) / height * 100))));
     }
+  }
+  function initializeScroll(current, sendInitial) {
+    function ready() {
+      window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(function () {
+          if (visit !== current || current.finished) return;
+          updateScroll();
+          if (sendInitial) send(false);
+        });
+      });
+    }
+    if (document.readyState === "complete") ready();
+    else window.addEventListener("load", ready, { once: true });
   }
   function deliver(payload, final, attempt) {
     var body = JSON.stringify(payload);
@@ -75,8 +88,8 @@
     if (next === visit.url) return;
     var previous = visit.url;
     send(true);
-    visit = newVisit(next, previous);
-    send(false);
+    visit = newVisit(next, new URL(previous).origin);
+    initializeScroll(visit, true);
   }
   function heartbeat() {
     if (visit.finished || document.hidden) return;
@@ -98,24 +111,21 @@
   window.addEventListener("pagehide", function () { send(true); });
   window.addEventListener("pageshow", function (event) {
     if (event.persisted) {
-      visit.finished = false;
-      visit.hidden = document.hidden;
-      visit.tick = performance.now();
-      visit.lastActivity = visit.tick;
-      heartbeat();
+      visit = newVisit(canonicalURL(window.location.href), "");
+      updateScroll();
+      send(false);
     }
   });
   ["mousedown", "keydown", "touchstart", "click"].forEach(function (name) {
     document.addEventListener(name, markActive, { passive: true });
   });
   window.addEventListener("scroll", function () { markActive(); updateScroll(); }, { passive: true });
-  window.addEventListener("load", updateScroll);
   ["pushState", "replaceState"].forEach(function (name) {
     var original = history[name];
     history[name] = function () { var result = original.apply(history, arguments); navigate(); return result; };
   });
   window.addEventListener("popstate", navigate);
   setInterval(heartbeat, 30000);
-  updateScroll();
   send(false);
+  initializeScroll(visit, false);
 })();

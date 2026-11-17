@@ -2,6 +2,7 @@ package analytics
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/webbesoft/doorman/internal/models"
@@ -67,6 +68,6 @@ func (r *Reports) Snapshot(ctx context.Context, now time.Time) (Snapshot, error)
 			s.DailyStats = append(s.DailyStats, day)
 		}
 		return nil
-	})
+	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 	return s, err
 }

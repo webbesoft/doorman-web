@@ -23,6 +23,29 @@ var migrations = []func(*gorm.DB, string) error{
 		return db.AutoMigrate(&models.Analytics{}, &models.PageVisit{}, &models.User{}, &models.AuthSession{})
 	},
 	importLegacyViews,
+	func(db *gorm.DB, _ string) error {
+		if err := db.AutoMigrate(&models.StorageBudget{}); err != nil {
+			return err
+		}
+		var count int64
+		if err := db.Model(&models.PageView{}).Count(&count).Error; err != nil {
+			return err
+		}
+		return db.Clauses(clause.OnConflict{DoNothing: true}).Create(&models.StorageBudget{ID: 1, RetainedViews: count}).Error
+	},
+	func(db *gorm.DB, _ string) error {
+		for _, entry := range []struct {
+			model any
+			name  string
+		}{{&models.PageView{}, "idx_page_view_human_day"}, {&models.Analytics{}, "idx_analytics_created_at"}, {&models.PageVisit{}, "idx_page_visits_created_at"}} {
+			if !db.Migrator().HasIndex(entry.model, entry.name) {
+				if err := db.Migrator().CreateIndex(entry.model, entry.name); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	},
 }
 
 // Migrate is an explicit deployment step. Only unapplied, versioned migrations run.

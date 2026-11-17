@@ -39,15 +39,19 @@ func (h *Handler) Track(c echo.Context) error {
 	if errors.Is(err, analytics.ErrVisitConflict) {
 		return c.JSON(http.StatusConflict, map[string]string{"error": "Visit ID belongs to a different page"})
 	}
+	if errors.Is(err, analytics.ErrCapacity) {
+		c.Response().Header().Set("Retry-After", "3600")
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Event storage capacity reached").SetInternal(err)
+	}
 	if err != nil {
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "Event storage is unavailable")
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Event storage is unavailable").SetInternal(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
 func (h *Handler) Dashboard(c echo.Context) error {
 	snapshot, err := h.Reports.Snapshot(c.Request().Context(), time.Now())
 	if err != nil {
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "Reports are temporarily unavailable")
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Reports are temporarily unavailable").SetInternal(err)
 	}
 	return pages.DashboardPage(snapshot.TopReferrers, snapshot.TopPages, snapshot.DailyStats, snapshot.TopCountries, snapshot.Metrics).Render(c.Request().Context(), c.Response().Writer)
 }

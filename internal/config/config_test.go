@@ -9,7 +9,7 @@ import (
 
 func environment(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"APP_ENV", "PORT", "DOORMAN_ADMIN_USER", "DOORMAN_ADMIN_PASSWORD", "DOORMAN_SESSION_SECRET", "DOORMAN_ALLOWED_HOSTS", "DOORMAN_TRUSTED_PROXIES", "DOORMAN_RETENTION_DAYS", "DOORMAN_GEO_API_KEY", "DB_PROVIDER", "DB_PATH", "DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE"} {
+	for _, key := range []string{"APP_ENV", "PORT", "DOORMAN_ADMIN_USER", "DOORMAN_ADMIN_PASSWORD", "DOORMAN_SESSION_SECRET", "DOORMAN_ALLOWED_HOSTS", "DOORMAN_TRUSTED_PROXIES", "DOORMAN_RETENTION_DAYS", "DOORMAN_GEO_API_KEY", "DOORMAN_MAX_PAGE_VIEWS", "DOORMAN_METRICS_TOKEN", "DB_PROVIDER", "DB_PATH", "DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE"} {
 		t.Setenv(key, "")
 	}
 	t.Setenv("APP_ENV", "test")
@@ -54,5 +54,43 @@ func TestProductionRequiresHosts(t *testing.T) {
 	t.Setenv("APP_ENV", "production")
 	if _, err := Load(); err == nil {
 		t.Fatal("unrestricted production collector accepted")
+	}
+}
+
+func TestProductionDatabaseTLSCannotBeDisabled(t *testing.T) {
+	for _, dsn := range []string{"postgres://owner:fixture@db.example/doorman?sslmode=disable", "postgres://owner:fixture@db.example/doorman?sslmode=require"} {
+		environment(t)
+		t.Setenv("APP_ENV", "production")
+		t.Setenv("DOORMAN_ALLOWED_HOSTS", "example.com")
+		t.Setenv("DB_PROVIDER", "postgres")
+		t.Setenv("DATABASE_URL", dsn)
+		if _, err := Load(); err == nil {
+			t.Fatal("production TLS verification disabled")
+		}
+	}
+}
+
+func TestMySQLProductionRejectsPlaintextFallback(t *testing.T) {
+	for _, tc := range []struct {
+		name, environment, options string
+		valid                      bool
+	}{
+		{"verified TLS", "production", "tls=true", true},
+		{"TLS fallback", "production", "tls=true&allowFallbackToPlaintext=true", false},
+		{"preferred TLS", "production", "tls=preferred", false},
+		{"local fallback", "local", "tls=true&allowFallbackToPlaintext=true", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			environment(t)
+			t.Chdir(t.TempDir())
+			t.Setenv("APP_ENV", tc.environment)
+			t.Setenv("DOORMAN_ALLOWED_HOSTS", "example.com")
+			t.Setenv("DB_PROVIDER", "mysql")
+			t.Setenv("DATABASE_URL", "owner:fixture@tcp(db.example:3306)/doorman?"+tc.options)
+			_, err := Load()
+			if (err == nil) != tc.valid {
+				t.Fatalf("valid=%v, error=%v", tc.valid, err)
+			}
+		})
 	}
 }

@@ -31,6 +31,15 @@ func InitDB(c config.Database) (*gorm.DB, error) {
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 			return nil, err
 		}
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
+		if err != nil {
+			return nil, err
+		}
+		err = file.Chmod(0600)
+		file.Close()
+		if err != nil {
+			return nil, err
+		}
 		u := url.URL{Scheme: "file", Path: path}
 		q := u.Query()
 		q.Set("_foreign_keys", "on")
@@ -55,27 +64,32 @@ func InitDB(c config.Database) (*gorm.DB, error) {
 		}
 		dialector = postgres.Open(dsn)
 	case "mysql":
-		dsn := c.URL
-		if dsn == "" {
+		mc := mysqlconfig.NewConfig()
+		if c.URL == "" {
 			port := c.Port
 			if port == "" {
 				port = "3306"
 			}
-			mc := mysqlconfig.NewConfig()
 			mc.User = c.User
 			mc.Passwd = c.Password
 			mc.Net = "tcp"
 			mc.Addr = net.JoinHostPort(c.Host, port)
 			mc.DBName = c.Name
-			mc.ParseTime = true
-			mc.Loc = time.UTC
 			mc.TLSConfig = "true"
-			mc.Timeout = 5 * time.Second
-			mc.ReadTimeout = 10 * time.Second
-			mc.WriteTimeout = 10 * time.Second
-			dsn = mc.FormatDSN()
+		} else {
+			var err error
+			mc, err = mysqlconfig.ParseDSN(c.URL)
+			if err != nil {
+				return nil, errors.New("invalid MySQL connection settings")
+			}
 		}
-		dialector = mysql.Open(dsn)
+		mc.ParseTime = true
+		mc.Loc = time.UTC
+		mc.ClientFoundRows = false
+		mc.Timeout = 5 * time.Second
+		mc.ReadTimeout = 10 * time.Second
+		mc.WriteTimeout = 10 * time.Second
+		dialector = mysql.Open(mc.FormatDSN())
 	default:
 		return nil, errors.New("unsupported database provider")
 	}
@@ -130,9 +144,9 @@ func CleanupOldData(db *gorm.DB, retentionDays int) error {
 	if retentionDays < 1 {
 		return errors.New("retention must be positive")
 	}
-	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
-
-	dayCutoff := time.Now().UTC().AddDate(0, 0, 1-retentionDays).Format("2006-01-02")
+	now := time.Now().UTC()
+	cutoff := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, 1-retentionDays)
+	dayCutoff := cutoff.Format("2006-01-02")
 	if err := deleteBatches(db, &models.PageView{}, "day < ?", dayCutoff); err != nil {
 		return err
 	}
@@ -150,7 +164,16 @@ func deleteBatches(db *gorm.DB, model any, condition string, args ...any) error 
 		if len(ids) == 0 {
 			return nil
 		}
-		if err := db.Where("id IN ?", ids).Delete(model).Error; err != nil {
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			result := tx.Where("id IN ?", ids).Delete(model)
+			if result.Error != nil {
+				return result.Error
+			}
+			if _, ok := model.(*models.PageView); ok {
+				return tx.Model(&models.StorageBudget{}).Where("id = ?", 1).Update("retained_views", gorm.Expr("CASE WHEN retained_views >= ? THEN retained_views - ? ELSE 0 END", result.RowsAffected, result.RowsAffected)).Error
+			}
+			return nil
+		}); err != nil {
 			return err
 		}
 	}

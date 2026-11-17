@@ -21,7 +21,7 @@ type Analytics struct {
 
 	PageVisits []PageVisit `gorm:"foreignKey:AnalyticsID"`
 
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
@@ -36,7 +36,7 @@ type PageVisit struct {
 	ActiveTime  int `json:"active_time"`
 	ScrollDepth int `json:"scroll_depth"`
 
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
@@ -81,7 +81,7 @@ type AuthSession struct {
 type PageView struct {
 	ID          string    `gorm:"primaryKey;size:64"`
 	SiteHost    string    `gorm:"size:253;not null;index:idx_page_view_site_day,priority:1"`
-	Day         string    `gorm:"size:10;not null;index;index:idx_page_view_site_day,priority:2"`
+	Day         string    `gorm:"size:10;not null;index;index:idx_page_view_site_day,priority:2;index:idx_page_view_human_day,priority:2"`
 	VisitorKey  string    `gorm:"size:64;not null;index"`
 	URL         string    `gorm:"size:2048;not null"`
 	Referrer    string    `gorm:"size:253"`
@@ -91,8 +91,14 @@ type PageView struct {
 	ScrollDepth int       `gorm:"not null"`
 	Sequence    int64     `gorm:"not null"`
 	Final       bool      `gorm:"not null"`
-	IsBot       bool      `gorm:"not null;index"`
+	IsBot       bool      `gorm:"not null;index;index:idx_page_view_human_day,priority:1"`
 	Legacy      bool      `gorm:"not null"`
 	CreatedAt   time.Time `gorm:"index"`
 	UpdatedAt   time.Time
+}
+
+// StorageBudget serializes capacity reservations across application instances.
+type StorageBudget struct {
+	ID            uint  `gorm:"primaryKey"`
+	RetainedViews int64 `gorm:"not null"`
 }

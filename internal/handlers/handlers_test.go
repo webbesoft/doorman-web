@@ -15,7 +15,7 @@ import (
 
 func TestTrackValidatesBeforePersisting(t *testing.T) {
 	db := testutil.Open(t)
-	h := &Handler{Tracker: analytics.NewTracker(db, strings.Repeat("k", 32), []string{"example.com"}, nil)}
+	h := &Handler{Tracker: analytics.NewTracker(db, strings.Repeat("k", 32), []string{"example.com"}, nil, 1000000)}
 	e := echo.New()
 	e.POST("/event", h.Track)
 	valid := analytics.Event{VisitID: "123456781234123412341234567890ab", Sequence: 1, URL: "https://example.com/page?token=secret#private", DwellTime: 5, ActiveTime: 3, ScrollDepth: 40}

@@ -28,7 +28,7 @@ func (a *AuthHandler) Login(c echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, "/login?error=invalid")
 	}
 	if err != nil {
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "Authentication is temporarily unavailable")
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Authentication is temporarily unavailable").SetInternal(err)
 	}
 	if old, err := c.Cookie(auth.CookieName); err == nil {
 		if err := a.Auth.Logout(c.Request().Context(), old.Value); err != nil {
@@ -41,7 +41,7 @@ func (a *AuthHandler) Login(c echo.Context) error {
 func (a *AuthHandler) Logout(c echo.Context) error {
 	if cookie, err := c.Cookie(auth.CookieName); err == nil {
 		if err := a.Auth.Logout(c.Request().Context(), cookie.Value); err != nil {
-			return echo.NewHTTPError(http.StatusServiceUnavailable, "Sign out is temporarily unavailable")
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "Sign out is temporarily unavailable").SetInternal(err)
 		}
 	}
 	c.SetCookie(a.Auth.Cookie(""))

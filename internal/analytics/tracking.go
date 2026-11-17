@@ -18,6 +18,7 @@ import (
 )
 
 var ErrInvalidEvent = errors.New("invalid tracking event")
+var ErrCapacity = errors.New("retained page view limit reached")
 var ErrVisitConflict = errors.New("visit ID already belongs to a different page")
 
 type Event struct {
@@ -32,18 +33,19 @@ type Event struct {
 }
 
 type Tracker struct {
-	db     *gorm.DB
-	secret []byte
-	hosts  map[string]bool
-	geo    *geolocation.GeoService
+	db       *gorm.DB
+	secret   []byte
+	hosts    map[string]bool
+	geo      *geolocation.GeoService
+	maxViews int64
 }
 
-func NewTracker(db *gorm.DB, secret string, hosts []string, geo *geolocation.GeoService) *Tracker {
+func NewTracker(db *gorm.DB, secret string, hosts []string, geo *geolocation.GeoService, maxViews int64) *Tracker {
 	allowed := make(map[string]bool, len(hosts))
 	for _, host := range hosts {
 		allowed[host] = true
 	}
-	return &Tracker{db: db, secret: []byte(secret), hosts: allowed, geo: geo}
+	return &Tracker{db: db, secret: []byte(secret), hosts: allowed, geo: geo, maxViews: maxViews}
 }
 
 func NormalizeURL(raw string) (string, string, error) {
@@ -121,6 +123,13 @@ func (t *Tracker) Record(ctx context.Context, event Event, ip, userAgent string)
 			return result.Error
 		}
 		if result.RowsAffected == 1 {
+			reservation := tx.Model(&models.StorageBudget{}).Where("id = ? AND retained_views < ?", 1, t.maxViews).Update("retained_views", gorm.Expr("retained_views + 1"))
+			if reservation.Error != nil {
+				return reservation.Error
+			}
+			if reservation.RowsAffected != 1 {
+				return ErrCapacity
+			}
 			return nil
 		}
 		// A sequence guard rejects stale and duplicate deliveries; maxima preserve cumulative measurements.

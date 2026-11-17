@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -24,11 +25,13 @@ type geoEntry struct {
 	expires time.Time
 }
 type GeoService struct {
-	mu      sync.Mutex
-	cache   map[string]geoEntry
-	group   singleflight.Group
-	limiter *rate.Limiter
-	lookup  func(context.Context, string) (GeoData, error)
+	failures atomic.Int64
+	limited  atomic.Int64
+	mu       sync.Mutex
+	cache    map[string]geoEntry
+	group    singleflight.Group
+	limiter  *rate.Limiter
+	lookup   func(context.Context, string) (GeoData, error)
 }
 
 // Geolocation is disabled unless an HTTPS commercial provider key is configured.
@@ -82,11 +85,13 @@ func (g *GeoService) GetGeoDataCached(ctx context.Context, ip, key string) GeoDa
 			return entry.data, nil
 		}
 		if !g.limiter.Allow() {
+			g.limited.Add(1)
 			return GeoData{}, nil
 		}
 		data, err := g.lookup(ctx, ip)
 		ttl := 24 * time.Hour
 		if err != nil {
+			g.failures.Add(1)
 			data = GeoData{}
 			ttl = 5 * time.Minute
 		}
@@ -106,3 +111,6 @@ func (g *GeoService) GetGeoDataCached(ctx context.Context, ip, key string) GeoDa
 	})
 	return value.(GeoData)
 }
+
+func (g *GeoService) LookupFailures() int64     { return g.failures.Load() }
+func (g *GeoService) RateLimitedLookups() int64 { return g.limited.Load() }

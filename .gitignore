@@ -9,3 +9,5 @@ tmp
 templates/**/*_templ.go
 
 config/deploy.yml
+
+__pycache__/

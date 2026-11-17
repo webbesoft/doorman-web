@@ -6,6 +6,7 @@ import (
 	"github.com/webbesoft/doorman/internal/database"
 	"github.com/webbesoft/doorman/internal/models"
 	"github.com/webbesoft/doorman/internal/testutil"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -125,5 +126,74 @@ func TestPageViewRetentionUsesCalendarDays(t *testing.T) {
 	db.Find(&views)
 	if len(views) != 1 || views[0].ID != "keep" {
 		t.Fatal(views)
+	}
+}
+
+func TestVerifiedBackupCanBeRestoredAndNeverOverwrites(t *testing.T) {
+	db := testutil.Open(t)
+	ctx := context.Background()
+	user := models.User{Username: "backup-owner", Password: "already-hashed-fixture"}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatal(err)
+	}
+	backup := filepath.Join(t.TempDir(), "backup.db")
+	if err := database.BackupSQLite(ctx, db, backup); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.BackupSQLite(ctx, db, backup); err == nil {
+		t.Fatal("existing backup overwritten")
+	}
+	if err := database.VerifySQLiteBackup(ctx, backup); err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(backup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restore := filepath.Join(t.TempDir(), "restored.db")
+	if err := os.WriteFile(restore, contents, 0600); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := database.InitDB(config.Database{Provider: "sqlite", Path: restore})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, _ := restored.DB()
+	defer sqlDB.Close()
+	var found models.User
+	if err := restored.Where("username = ?", user.Username).First(&found).Error; err != nil {
+		t.Fatal(err)
+	}
+	if found.Password != user.Password {
+		t.Fatal("restored data differs")
+	}
+	if err := database.CheckSchema(restored); err != nil {
+		t.Fatal(err)
+	}
+	info, _ := os.Stat(backup)
+	if info.Mode().Perm() != 0600 {
+		t.Fatal("backup is not private")
+	}
+}
+
+func TestLegacyRetentionUsesSameCalendarCutoff(t *testing.T) {
+	db := testutil.Open(t)
+	now := time.Now().UTC()
+	yesterdayEnd := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).Add(-time.Nanosecond)
+	parent := models.Analytics{URL: "https://example.com/", CreatedAt: yesterdayEnd}
+	if err := db.Create(&parent).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.PageVisit{AnalyticsID: parent.ID, URL: parent.URL, CreatedAt: yesterdayEnd}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.CleanupOldData(db, 1); err != nil {
+		t.Fatal(err)
+	}
+	var parents, children int64
+	db.Model(&models.Analytics{}).Count(&parents)
+	db.Model(&models.PageVisit{}).Count(&children)
+	if parents != 0 || children != 0 {
+		t.Fatal("expired sensitive legacy rows survived the calendar cutoff")
 	}
 }

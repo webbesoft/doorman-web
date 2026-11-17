@@ -13,6 +13,7 @@ import (
 
 	"github.com/webbesoft/doorman/internal/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const CookieName = "doorman_session"
@@ -37,6 +38,9 @@ func (m *Manager) hash(token string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 func (m *Manager) Login(ctx context.Context, username, password string) (string, error) {
+	if username == "" || len(username) > 128 || len(password) < 12 || len(password) > 72 {
+		return "", ErrUnauthorized
+	}
 	var user models.User
 	err := m.db.WithContext(ctx).Where("username = ?", username).First(&user).Error
 	if err != nil {
@@ -55,7 +59,19 @@ func (m *Manager) Login(ctx context.Context, username, password string) (string,
 	token := base64.RawURLEncoding.EncodeToString(raw[:])
 	now := m.now().UTC()
 	s := models.AuthSession{TokenHash: m.hash(token), UserID: user.ID, ExpiresAt: now.Add(Lifetime), LastSeenAt: now}
-	if err := m.db.WithContext(ctx).Create(&s).Error; err != nil {
+	if err := m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current models.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id", "password").First(&current, user.ID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrUnauthorized
+			}
+			return err
+		}
+		if current.Password != user.Password {
+			return ErrUnauthorized
+		}
+		return tx.Create(&s).Error
+	}); err != nil {
 		return "", err
 	}
 	return token, nil

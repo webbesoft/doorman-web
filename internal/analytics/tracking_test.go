@@ -18,7 +18,7 @@ func event(id int) analytics.Event {
 }
 func TestSeparateNavigationsAndOutOfOrderHeartbeats(t *testing.T) {
 	db := testutil.Open(t)
-	tracker := analytics.NewTracker(db, strings.Repeat("k", 32), []string{"example.com"}, nil)
+	tracker := analytics.NewTracker(db, strings.Repeat("k", 32), []string{"example.com"}, nil, 1000000)
 	ctx := context.Background()
 	for _, id := range []int{1, 2} {
 		if err := tracker.Record(ctx, event(id), "8.8.8.8", "Mozilla/5.0"); err != nil {
@@ -61,7 +61,7 @@ func TestSeparateNavigationsAndOutOfOrderHeartbeats(t *testing.T) {
 }
 func TestConcurrentDuplicateDeliveriesCreateOneVisit(t *testing.T) {
 	db := testutil.Open(t)
-	tracker := analytics.NewTracker(db, strings.Repeat("k", 32), nil, nil)
+	tracker := analytics.NewTracker(db, strings.Repeat("k", 32), nil, nil, 1000000)
 	var wg sync.WaitGroup
 	errs := make(chan error, 16)
 	for range 16 {
@@ -85,7 +85,7 @@ func TestConcurrentDuplicateDeliveriesCreateOneVisit(t *testing.T) {
 	}
 }
 func TestRejectInvalidMeasurementsAndHosts(t *testing.T) {
-	tracker := analytics.NewTracker(testutil.Open(t), strings.Repeat("k", 32), []string{"example.com"}, nil)
+	tracker := analytics.NewTracker(testutil.Open(t), strings.Repeat("k", 32), []string{"example.com"}, nil, 1000000)
 	for _, change := range []func(*analytics.Event){func(e *analytics.Event) { e.URL = "https://evil.example/" }, func(e *analytics.Event) { e.DwellTime = -1 }, func(e *analytics.Event) { e.ActiveTime = 1000 }, func(e *analytics.Event) { e.ScrollDepth = 101 }, func(e *analytics.Event) { e.VisitID = "" }, func(e *analytics.Event) { e.Sequence = 0 }} {
 		e := event(1)
 		change(&e)
@@ -101,5 +101,30 @@ func TestVisitorKeysAreScopedToSiteAndUTCDay(t *testing.T) {
 		if a == b {
 			t.Fatal("visitor key correlates across sites or days")
 		}
+	}
+}
+
+func TestCapacityRejectsNewVisitsButAllowsExistingHeartbeats(t *testing.T) {
+	db := testutil.Open(t)
+	tracker := analytics.NewTracker(db, strings.Repeat("k", 32), nil, nil, 2)
+	ctx := context.Background()
+	for _, id := range []int{1, 2} {
+		if err := tracker.Record(ctx, event(id), "8.8.8.8", "Mozilla/5.0"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tracker.Record(ctx, event(3), "8.8.8.8", "Mozilla/5.0"); !errors.Is(err, analytics.ErrCapacity) {
+		t.Fatalf("capacity=%v", err)
+	}
+	heartbeat := event(1)
+	heartbeat.Sequence = 2
+	heartbeat.DwellTime = 200
+	if err := tracker.Record(ctx, heartbeat, "8.8.8.8", "Mozilla/5.0"); err != nil {
+		t.Fatal("existing visit rejected at capacity:", err)
+	}
+	var count int64
+	db.Model(&models.PageView{}).Count(&count)
+	if count != 2 {
+		t.Fatalf("quota rejection left a row: %d", count)
 	}
 }
